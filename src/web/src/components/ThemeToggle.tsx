@@ -2,14 +2,23 @@ import { useTheme } from "../hooks/useTheme.js";
 
 export default function ThemeToggle() {
   const { theme, toggle } = useTheme();
-  const label = theme === "dark" ? "Light" : "Dark";
+  const isDark = theme === "dark";
   return (
     <button
+      type="button"
+      role="switch"
+      aria-checked={isDark}
+      aria-label="Toggle dark mode"
       onClick={toggle}
-      aria-label={`Switch to ${label} theme`}
-      className="rounded border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
+      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+        isDark ? "bg-blue-600" : "bg-gray-300"
+      }`}
     >
-      {label}
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+          isDark ? "translate-x-4" : "translate-x-0.5"
+        }`}
+      />
     </button>
   );
 }
