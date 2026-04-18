@@ -40,7 +40,7 @@ export function registerRoutes(app: Hono, deps: RouteDeps): void {
     now,
     config: {
       model,
-      maxIterations: 6,
+      maxIterations: 12,
       perCallTimeoutMs: 90_000,
       wallClockMs: 300_000,
     },

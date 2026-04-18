@@ -848,6 +848,10 @@ Adaptation: `buildSystemPrompt()` remains argument-free and returns the verbatim
 Alternatives considered and rejected:
 - Drop `session_id` from tool inputSchemas and have `McpClient.callTool` inject it server-side. Cleaner architecturally — the supervisor would see simpler tool signatures and could not fabricate the session_id — but requires updating four inputSchemas, the MCP tool implementations, the `McpClient` interface, and `handleTurn`'s tool-call dispatch. Documented here as a future adaptation knob if model reliability on session_id handling degrades.
 
+### 2026-04-17 — post-slice-5: raised `maxIterations` from 6 to 12
+
+First real-world turn against `google/gemma-4-26b-a4b` with a substantial user message (a multi-paragraph idea) produced `get_prd` + multiple `update_section` calls + the supervisor still wanting to ask a follow-up question, exceeding 6 iterations before a final assistant text appeared. The written sections persisted correctly (preservation held) but the user saw only the iteration-cap error. Raised `maxIterations` from 6 to 12 in `src/server/routes.ts`. The cap still bounds runaway loops; the per-call 90s timeout and 300s wall-clock cap are unchanged. Also added an end-of-turn stderr log line `turn <id8> termination=<...> iterations=<n> elapsed_ms=<n>` in `src/server/turn.ts` so we can see empirical iteration counts during real use and recalibrate further if needed.
+
 ### 2026-04-17 — slice 4: `createMcpClient` accepts optional sqlitePath
 
 The spec's Architecture section described the MCP child inheriting `process.env` verbatim. The slice-4 harness uses a disposable `./tmp/harness.sqlite` database and needs the MCP child to read from that path, not the production `SQLITE_PATH` default. `createMcpClient(sqlitePath?)` now accepts an optional override and threads it into the child's environment via `env.SQLITE_PATH`. Production `startServer` always passes its configured `sqlitePath`, so prod and harness both behave correctly. No behavior impact on the normal dev path. Affected files: `src/server/mcpClient.ts`, `src/server/server.ts`, `scripts/doc-edit-check.ts`.

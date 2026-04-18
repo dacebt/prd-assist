@@ -207,6 +207,11 @@ export async function handleTurn(opts: {
     session.updatedAt = replyTs;
     store.persistAssistantMessage(session);
 
+    const elapsedMs = now().getTime() - wallStart;
+    console.log(
+      `turn ${sessionId.slice(0, 8)} termination=${termination} iterations=${iterationCount} elapsed_ms=${elapsedMs}`,
+    );
+
     return assistantContent;
   } finally {
     mutex.release(sessionId);
