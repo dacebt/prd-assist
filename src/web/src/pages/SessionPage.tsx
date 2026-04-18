@@ -5,6 +5,7 @@ import type { Session } from "../../../shared/types.js";
 import Sidebar from "../components/Sidebar.js";
 import ChatPane from "../components/ChatPane.js";
 import PrdPane from "../components/PrdPane.js";
+import { useSessionPolling } from "../hooks/useSessionPolling.js";
 
 type LoadState =
   | { status: "loading" }
@@ -14,6 +15,7 @@ type LoadState =
 export default function SessionPage() {
   const { id } = useParams<{ id: string }>();
   const [state, setState] = useState<LoadState>({ status: "loading" });
+  const [turnInFlight, setTurnInFlight] = useState(false);
 
   useEffect(() => {
     if (!id) {
@@ -28,13 +30,26 @@ export default function SessionPage() {
       });
   }, [id]);
 
-  function handleTurnComplete(updatedSession: Session) {
-    if (!id) return;
-    fetchSession(id)
-      .then((fresh) => setState({ status: "loaded", session: fresh }))
-      .catch(() => {
-        setState({ status: "loaded", session: updatedSession });
-      });
+  useSessionPolling({
+    sessionId: id,
+    active: turnInFlight,
+    onUpdate: (session) => setState({ status: "loaded", session }),
+  });
+
+  function handleBeforeSend() {
+    setTurnInFlight(true);
+  }
+
+  function handleAfterSend(optimistic: Session | undefined) {
+    setTurnInFlight(false);
+    if (optimistic) {
+      setState({ status: "loaded", session: optimistic });
+    }
+    if (id) {
+      fetchSession(id)
+        .then((fresh) => setState({ status: "loaded", session: fresh }))
+        .catch(() => undefined);
+    }
   }
 
   return (
@@ -43,7 +58,12 @@ export default function SessionPage() {
       <div className="flex flex-1 overflow-hidden">
         {state.status === "loaded" ? (
           <>
-            <ChatPane session={state.session} onTurnComplete={handleTurnComplete} />
+            <ChatPane
+              session={state.session}
+              inFlight={turnInFlight}
+              onBeforeSend={handleBeforeSend}
+              onAfterSend={handleAfterSend}
+            />
             <div className="flex-1 overflow-y-auto bg-gray-50">
               <PrdPane prd={state.session.prd} />
             </div>

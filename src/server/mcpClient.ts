@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import type { LlmToolDescriptor } from "./llm.js";
 
 export interface McpToolDescriptor {
   name: string;
@@ -12,6 +13,19 @@ export interface McpClient {
   listTools(): Promise<McpToolDescriptor[]>;
   callTool(name: string, args: unknown): Promise<unknown>;
   close(): Promise<void>;
+}
+
+export function mcpToolsToOpenAi(
+  tools: readonly McpToolDescriptor[],
+): LlmToolDescriptor[] {
+  return tools.map((t) => ({
+    type: "function" as const,
+    function: {
+      name: t.name,
+      description: t.description,
+      parameters: t.inputSchema,
+    },
+  }));
 }
 
 export async function createMcpClient(sqlitePath?: string): Promise<McpClient> {

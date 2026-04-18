@@ -1,6 +1,7 @@
 import type { SessionStore } from "./sessions.js";
 import type { LlmClient, AssistantMessage } from "./llm.js";
 import type { McpClient } from "./mcpClient.js";
+import { mcpToolsToOpenAi } from "./mcpClient.js";
 import type { SessionMutex } from "./mutex.js";
 import { buildSystemPrompt } from "./prompt.js";
 import { deriveTitle } from "./deriveTitle.js";
@@ -85,10 +86,7 @@ export async function handleTurn(opts: {
     store.persistUserMessage(session);
 
     const mcpTools = await mcp.listTools();
-    const tools = mcpTools.map((t) => ({
-      type: "function" as const,
-      function: { name: t.name, description: t.description, parameters: t.inputSchema },
-    }));
+    const tools = mcpToolsToOpenAi(mcpTools);
 
     const systemContent =
       `${buildSystemPrompt()}\n\nThe session_id for every MCP tool call in this session is: ${sessionId}`;

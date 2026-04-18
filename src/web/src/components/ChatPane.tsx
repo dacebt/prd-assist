@@ -5,12 +5,13 @@ import MessageBubble from "./MessageBubble.js";
 
 interface Props {
   session: Session;
-  onTurnComplete: (updatedSession: Session) => void;
+  inFlight: boolean;
+  onBeforeSend: () => void;
+  onAfterSend: (optimistic: Session | undefined) => void;
 }
 
-export default function ChatPane({ session, onTurnComplete }: Props) {
+export default function ChatPane({ session, inFlight, onBeforeSend, onAfterSend }: Props) {
   const [text, setText] = useState("");
-  const [inFlight, setInFlight] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -22,25 +23,25 @@ export default function ChatPane({ session, onTurnComplete }: Props) {
     const trimmed = text.trim();
     if (!trimmed || inFlight) return;
 
-    setInFlight(true);
+    onBeforeSend();
     setError(null);
 
     try {
       const reply = await sendMessage(session.id, trimmed);
       setText("");
-      onTurnComplete({
+      const optimistic: Session = {
         ...session,
         messages: [
           ...session.messages,
           { role: "user", content: trimmed, at: new Date().toISOString() },
           { role: "assistant", content: reply, at: new Date().toISOString() },
         ],
-      });
+      };
+      onAfterSend(optimistic);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";
       setError(`Send failed: ${msg}`);
-    } finally {
-      setInFlight(false);
+      onAfterSend(undefined);
     }
   }
 
