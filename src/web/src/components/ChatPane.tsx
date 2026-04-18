@@ -53,7 +53,7 @@ export default function ChatPane({ session, inFlight, onBeforeSend, onAfterSend 
   }
 
   return (
-    <div className="w-[400px] shrink-0 border-r border-gray-200 bg-white flex flex-col dark:border-gray-800 dark:bg-gray-900">
+    <div className="h-full w-full border-r border-gray-200 bg-white flex flex-col dark:border-gray-800 dark:bg-gray-900">
       <div className="flex-1 overflow-y-auto p-4">
         {session.messages.map((msg) => (
           <MessageBubble key={msg.at} role={msg.role} content={msg.content} />
