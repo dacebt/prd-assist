@@ -839,6 +839,19 @@ Report completion with: what was built, what was verified, what Verification Sce
 
 The Turn loop section of this spec declares `TurnDeps` with field `db: SessionStore`. During slice-3 implementation the field was named `store: SessionStore` to avoid naming ambiguity with the raw `better-sqlite3` `Database` handle also passed around inside `src/server/`. No behavior impact. Affected files: `src/server/turn.ts`, `src/server/routes.ts`, `src/server/turn.test.ts`. Slice 4 inherits the `store` name and adds `mcp: McpClient` alongside it.
 
+### 2026-04-17 — slice 4: session_id injection into runtime system prompt
+
+The spec's Requirements > System prompt section defines `buildSystemPrompt(): string` with no arguments and pins five verbatim rule sentences. The spec's Requirements > MCP tools section requires every tool call to include `session_id: string`. The spec does not say how the supervisor learns the session_id at the start of a turn, and empirical testing with `google/gemma-4-26b-a4b` showed the supervisor responds "please provide a session ID" when none is present in its context.
+
+Adaptation: `buildSystemPrompt()` remains argument-free and returns the verbatim prompt; `handleTurn` appends a single line `"\n\nThe session_id for every MCP tool call in this session is: {sessionId}"` to the system-role content before the first `llm.chat` call. The verbatim rule sentences and all other prompt content are byte-identical to the spec — the acceptance criterion (`buildSystemPrompt` contains each verbatim rule) still holds. Affected files: `src/server/turn.ts`.
+
+Alternatives considered and rejected:
+- Drop `session_id` from tool inputSchemas and have `McpClient.callTool` inject it server-side. Cleaner architecturally — the supervisor would see simpler tool signatures and could not fabricate the session_id — but requires updating four inputSchemas, the MCP tool implementations, the `McpClient` interface, and `handleTurn`'s tool-call dispatch. Documented here as a future adaptation knob if model reliability on session_id handling degrades.
+
+### 2026-04-17 — slice 4: `createMcpClient` accepts optional sqlitePath
+
+The spec's Architecture section described the MCP child inheriting `process.env` verbatim. The slice-4 harness uses a disposable `./tmp/harness.sqlite` database and needs the MCP child to read from that path, not the production `SQLITE_PATH` default. `createMcpClient(sqlitePath?)` now accepts an optional override and threads it into the child's environment via `env.SQLITE_PATH`. Production `startServer` always passes its configured `sqlitePath`, so prod and harness both behave correctly. No behavior impact on the normal dev path. Affected files: `src/server/mcpClient.ts`, `src/server/server.ts`, `scripts/doc-edit-check.ts`.
+
 ## Implementation Slices
 
 ```digraph

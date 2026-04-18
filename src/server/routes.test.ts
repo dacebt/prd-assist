@@ -6,10 +6,19 @@ import { createSessionStore } from "./sessions.js";
 import { registerRoutes, type RouteDeps } from "./routes.js";
 import { createSessionMutex } from "./mutex.js";
 import type { LlmClient } from "./llm.js";
+import type { McpClient } from "./mcpClient.js";
 
 function makeStubLlm(reply: string = "stub reply"): LlmClient {
   return {
     chat: () => Promise.resolve({ role: "assistant", content: reply }),
+  };
+}
+
+function makeStubMcp(): McpClient {
+  return {
+    listTools: () => Promise.resolve([]),
+    callTool: () => Promise.resolve({}),
+    close: () => Promise.resolve(),
   };
 }
 
@@ -20,6 +29,7 @@ function buildApp(llmOverride?: LlmClient) {
   const deps: RouteDeps = {
     store,
     llm: llmOverride ?? makeStubLlm(),
+    mcp: makeStubMcp(),
     mutex: createSessionMutex(),
     model: "test-model",
     now: () => new Date("2026-01-01T10:00:00.000Z"),

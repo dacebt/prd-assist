@@ -11,10 +11,12 @@
     "build": "tsc -p tsconfig.json && vite build",
     "typecheck": "tsc --noEmit",
     "lint": "eslint --no-error-on-unmatched-pattern 'src/**/*.{ts,tsx}' 'scripts/**/*.ts'",
-    "test": "vitest"
+    "test": "vitest",
+    "doc-edit-check": "tsx scripts/doc-edit-check.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.14",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "better-sqlite3": "^11.10.0",
     "hono": "^4.12.14",
     "openai": "^4.104.0",

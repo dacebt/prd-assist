@@ -2,9 +2,11 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { SessionStore } from "./sessions.js";
 import type { LlmClient } from "./llm.js";
+import type { McpClient } from "./mcpClient.js";
 import type { SessionMutex } from "./mutex.js";
 import { handleTurn, SessionBusyError, SessionNotFoundError } from "./turn.js";
 import type { TurnDeps } from "./turn.js";
+
 const IdParamSchema = z.object({
   id: z.string().min(1),
 });
@@ -21,17 +23,19 @@ const PostMessageBodySchema = z.object({
 export interface RouteDeps {
   store: SessionStore;
   llm: LlmClient;
+  mcp: McpClient;
   mutex: SessionMutex;
   model: string;
   now: () => Date;
 }
 
 export function registerRoutes(app: Hono, deps: RouteDeps): void {
-  const { store, llm, mutex, model, now } = deps;
+  const { store, llm, mcp, mutex, model, now } = deps;
 
   const turnDeps: TurnDeps = {
     store,
     llm,
+    mcp,
     mutex,
     now,
     config: {
@@ -107,40 +111,4 @@ export function registerRoutes(app: Hono, deps: RouteDeps): void {
       return c.json({ error: "internal", message }, 500);
     }
   });
-
-  if (process.env["NODE_ENV"] !== "production") {
-    app.post("/api/debug/tool-calling-smoke", async (c) => {
-      try {
-        const result = await llm.chat({
-          model,
-          messages: [
-            {
-              role: "system",
-              content: "When asked to echo something, call the echo tool with the provided text.",
-            },
-            { role: "user", content: "Please call the echo tool with text 'hi'." },
-          ],
-          tools: [
-            {
-              type: "function",
-              function: {
-                name: "echo",
-                description: "Echoes the provided text.",
-                parameters: {
-                  type: "object",
-                  properties: { text: { type: "string" } },
-                  required: ["text"],
-                },
-              },
-            },
-          ],
-        });
-        return c.json(result);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Unknown error";
-        return c.json({ error: "smoke_test_failed", message });
-      }
-    });
-  }
-
 }

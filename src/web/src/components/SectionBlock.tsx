@@ -1,3 +1,5 @@
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { Section, SectionKey } from "../../../shared/types.js";
 import { SECTION_LABELS } from "../../../shared/sections.js";
 
@@ -25,7 +27,9 @@ export default function SectionBlock({ sectionKey, section }: Props) {
         </span>
       </div>
       {section.content ? (
-        <pre className="whitespace-pre-wrap text-sm text-gray-700">{section.content}</pre>
+        <div className="text-sm text-gray-700 prose prose-sm max-w-none">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{section.content}</ReactMarkdown>
+        </div>
       ) : (
         <p className="text-sm text-gray-400 italic">(empty)</p>
       )}

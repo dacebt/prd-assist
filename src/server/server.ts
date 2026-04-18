@@ -5,6 +5,7 @@ import { dirname } from "node:path";
 import { openDatabase } from "./db.js";
 import { createSessionStore } from "./sessions.js";
 import { registerRoutes } from "./routes.js";
+import { createMcpClient } from "./mcpClient.js";
 import type { LlmClient } from "./llm.js";
 import type { SessionMutex } from "./mutex.js";
 
@@ -17,34 +18,43 @@ export interface ServerOptions {
   model: string;
 }
 
-export function startServer(opts: ServerOptions): { close: () => void } {
+export async function startServer(
+  opts: ServerOptions,
+): Promise<{ port: number; close: () => Promise<void> }> {
   if (opts.sqlitePath !== ":memory:") {
     mkdirSync(dirname(opts.sqlitePath), { recursive: true });
   }
 
   const db = openDatabase(opts.sqlitePath);
   const store = createSessionStore(db);
+
+  const mcp = await createMcpClient(opts.sqlitePath);
+
   const app = new Hono();
 
   registerRoutes(app, {
     store,
     llm: opts.llm,
+    mcp,
     mutex: opts.mutex,
     model: opts.model,
     now: () => new Date(),
   });
 
-  const server = serve(
-    { fetch: app.fetch, hostname: opts.hostname, port: opts.port },
-    (info) => {
-      console.log(`listening on ${info.address}:${info.port}`);
-    },
-  );
-
-  return {
-    close() {
-      server.close();
-      db.close();
-    },
-  };
+  return new Promise((resolve) => {
+    const server = serve(
+      { fetch: app.fetch, hostname: opts.hostname, port: opts.port },
+      (info) => {
+        console.log(`listening on ${info.address}:${info.port}`);
+        resolve({
+          port: info.port,
+          async close() {
+            await mcp.close();
+            await new Promise<void>((res) => server.close(() => res()));
+            db.close();
+          },
+        });
+      },
+    );
+  });
 }

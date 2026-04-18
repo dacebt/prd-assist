@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { handleTurn, SessionBusyError, SessionNotFoundError, type TurnDeps } from "./turn.js";
 import type { LlmClient, AssistantMessage } from "./llm.js";
+import type { McpClient, McpToolDescriptor } from "./mcpClient.js";
 import type { SessionStore } from "./sessions.js";
 import type { SessionMutex } from "./mutex.js";
 import type { Session } from "../shared/types.js";
@@ -41,24 +42,47 @@ function makeStore(session: Session | null): SessionStore & {
 
 function makeLlmClient(reply: string | (() => Promise<AssistantMessage>)): LlmClient {
   return {
-    chat: async () => {
+    chat: () => {
       if (typeof reply === "string") {
-        return { role: "assistant", content: reply };
+        return Promise.resolve({ role: "assistant", content: reply });
       }
       return reply();
     },
   };
 }
 
+function makeDefaultMcpClient(overrides: Partial<McpClient> = {}): McpClient {
+  return {
+    listTools: () => Promise.resolve([]),
+    callTool: () => Promise.resolve({}),
+    close: () => Promise.resolve(),
+    ...overrides,
+  };
+}
+
+const MOCK_GET_PRD_TOOL: McpToolDescriptor = {
+  name: "get_prd",
+  description: "Read the PRD",
+  inputSchema: { type: "object", properties: { session_id: { type: "string" } } },
+};
+
+const MOCK_UPDATE_SECTION_TOOL: McpToolDescriptor = {
+  name: "update_section",
+  description: "Update a section",
+  inputSchema: { type: "object", properties: { session_id: { type: "string" } } },
+};
+
 function makeDeps(
   session: Session | null,
   llm: LlmClient,
   mutex: SessionMutex = createSessionMutex(),
+  mcp: McpClient = makeDefaultMcpClient(),
 ): TurnDeps & { store: ReturnType<typeof makeStore> } {
   const store = makeStore(session);
   return {
     store,
     llm,
+    mcp,
     mutex,
     now: () => new Date("2026-01-01T10:00:00.000Z"),
     config: {
@@ -192,5 +216,237 @@ describe("handleTurn", () => {
     await handleTurn({ sessionId: "test-session", userText: "Second message", deps });
 
     expect(deps.store.persistUserCalls[0]?.title).toBe("Already set");
+  });
+
+  it("happy path with tool calls: get_prd then update_section then final text", async () => {
+    const session = makeSession();
+    const callToolSpy = vi.fn().mockResolvedValue({ content: "mocked prd" });
+
+    const mcp = makeDefaultMcpClient({
+      listTools: () => Promise.resolve([MOCK_GET_PRD_TOOL, MOCK_UPDATE_SECTION_TOOL]),
+      callTool: callToolSpy,
+    });
+
+    let callCount = 0;
+    const llm: LlmClient = {
+      chat: () => {
+        callCount++;
+        if (callCount === 1) {
+          return Promise.resolve({
+            role: "assistant",
+            content: null,
+            tool_calls: [
+              {
+                id: "call-1",
+                type: "function",
+                function: { name: "get_prd", arguments: '{"session_id":"test-session"}' },
+              },
+            ],
+          });
+        }
+        if (callCount === 2) {
+          return Promise.resolve({
+            role: "assistant",
+            content: null,
+            tool_calls: [
+              {
+                id: "call-2",
+                type: "function",
+                function: {
+                  name: "update_section",
+                  arguments: '{"session_id":"test-session","key":"vision","content":"A vision"}',
+                },
+              },
+            ],
+          });
+        }
+        return Promise.resolve({ role: "assistant", content: "Done! Vision updated." });
+      },
+    };
+
+    const deps = makeDeps(session, llm, createSessionMutex(), mcp);
+    const result = await handleTurn({ sessionId: "test-session", userText: "Set vision", deps });
+
+    expect(result).toBe("Done! Vision updated.");
+    expect(callToolSpy).toHaveBeenCalledTimes(2);
+    expect(callToolSpy).toHaveBeenNthCalledWith(1, "get_prd", { session_id: "test-session" });
+    expect(callToolSpy).toHaveBeenNthCalledWith(2, "update_section", {
+      session_id: "test-session",
+      key: "vision",
+      content: "A vision",
+    });
+  });
+
+  it("handles JSON-parse failure in tool arguments", async () => {
+    const session = makeSession();
+    const mcp = makeDefaultMcpClient({
+      listTools: () => Promise.resolve([MOCK_GET_PRD_TOOL]),
+    });
+
+    let callCount = 0;
+    const llm: LlmClient = {
+      chat: () => {
+        callCount++;
+        if (callCount === 1) {
+          return Promise.resolve({
+            role: "assistant",
+            content: null,
+            tool_calls: [
+              {
+                id: "call-bad",
+                type: "function",
+                function: { name: "get_prd", arguments: "{ invalid json" },
+              },
+            ],
+          });
+        }
+        return Promise.resolve({ role: "assistant", content: "recovered" });
+      },
+    };
+
+    const deps = makeDeps(session, llm, createSessionMutex(), mcp);
+    const result = await handleTurn({ sessionId: "test-session", userText: "hi", deps });
+
+    expect(result).toBe("recovered");
+  });
+
+  it("handles unknown tool name from model", async () => {
+    const session = makeSession();
+    const mcp = makeDefaultMcpClient({
+      listTools: () => Promise.resolve([MOCK_GET_PRD_TOOL]),
+    });
+
+    let callCount = 0;
+    const llm: LlmClient = {
+      chat: () => {
+        callCount++;
+        if (callCount === 1) {
+          return Promise.resolve({
+            role: "assistant",
+            content: null,
+            tool_calls: [
+              {
+                id: "call-1",
+                type: "function",
+                function: { name: "modify_vision", arguments: "{}" },
+              },
+            ],
+          });
+        }
+        return Promise.resolve({ role: "assistant", content: "recovered from unknown tool" });
+      },
+    };
+
+    const deps = makeDeps(session, llm, createSessionMutex(), mcp);
+    const result = await handleTurn({ sessionId: "test-session", userText: "hi", deps });
+
+    expect(result).toBe("recovered from unknown tool");
+  });
+
+  it("handles MCP callTool throwing", async () => {
+    const session = makeSession();
+    const mcp = makeDefaultMcpClient({
+      listTools: () => Promise.resolve([MOCK_GET_PRD_TOOL]),
+      callTool: () => Promise.reject(new Error("MCP connection failed")),
+    });
+
+    let callCount = 0;
+    const llm: LlmClient = {
+      chat: () => {
+        callCount++;
+        if (callCount === 1) {
+          return Promise.resolve({
+            role: "assistant",
+            content: null,
+            tool_calls: [
+              {
+                id: "call-1",
+                type: "function",
+                function: { name: "get_prd", arguments: '{"session_id":"test-session"}' },
+              },
+            ],
+          });
+        }
+        return Promise.resolve({ role: "assistant", content: "recovered from mcp error" });
+      },
+    };
+
+    const deps = makeDeps(session, llm, createSessionMutex(), mcp);
+    const result = await handleTurn({ sessionId: "test-session", userText: "hi", deps });
+
+    expect(result).toBe("recovered from mcp error");
+  });
+
+  it("reaches iteration cap and returns cap message", async () => {
+    const session = makeSession();
+    const mcp = makeDefaultMcpClient({
+      listTools: () => Promise.resolve([MOCK_GET_PRD_TOOL]),
+      callTool: () => Promise.resolve({ content: "ok" }),
+    });
+
+    let callCount = 0;
+    const llm: LlmClient = {
+      chat: () => {
+        callCount++;
+        return Promise.resolve({
+          role: "assistant",
+          content: null,
+          tool_calls: [
+            {
+              id: `call-${callCount}`,
+              type: "function",
+              function: { name: "get_prd", arguments: '{"session_id":"test-session"}' },
+            },
+          ],
+        });
+      },
+    };
+
+    const deps = makeDeps(session, llm, createSessionMutex(), mcp);
+    const result = await handleTurn({ sessionId: "test-session", userText: "hi", deps });
+
+    expect(result).toBe(
+      "I hit a tool-call loop limit. Please rephrase your request or try a smaller step.",
+    );
+  });
+
+  it("wall-clock cap returns wall-clock message", async () => {
+    const session = makeSession();
+    const mcp = makeDefaultMcpClient({
+      listTools: () => Promise.resolve([MOCK_GET_PRD_TOOL]),
+      callTool: () => Promise.resolve({ content: "ok" }),
+    });
+
+    let nowCallCount = 0;
+    const llm: LlmClient = {
+      chat: () => {
+        return Promise.resolve({
+          role: "assistant",
+          content: null,
+          tool_calls: [
+            {
+              id: `call-${nowCallCount}`,
+              type: "function",
+              function: { name: "get_prd", arguments: '{"session_id":"test-session"}' },
+            },
+          ],
+        });
+      },
+    };
+
+    const startMs = 1000;
+    const deps = makeDeps(session, llm, createSessionMutex(), mcp);
+    deps.now = () => {
+      nowCallCount++;
+      // First two calls (ts timestamp + wallStart) return start time.
+      // Third call onward (loop wall-clock checks) returns beyond cap.
+      if (nowCallCount <= 2) return new Date(startMs);
+      return new Date(startMs + 300_001);
+    };
+    deps.config.wallClockMs = 300_000;
+
+    const result = await handleTurn({ sessionId: "test-session", userText: "hi", deps });
+
+    expect(result).toBe("I ran out of time on that turn. Please try again.");
   });
 });
