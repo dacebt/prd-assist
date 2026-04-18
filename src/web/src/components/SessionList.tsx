@@ -26,21 +26,21 @@ export default function SessionList() {
   }, []);
 
   if (sessions.length === 0) {
-    return <p className="text-sm text-gray-400 italic px-4 py-2">No sessions yet.</p>;
+    return <p className="text-sm text-gray-400 italic px-4 py-2 dark:text-gray-500">No sessions yet.</p>;
   }
 
   return (
-    <ul className="divide-y divide-gray-100">
+    <ul className="divide-y divide-gray-100 dark:divide-gray-800">
       {sessions.map((s) => (
         <li
           key={s.id}
-          className="px-4 py-3 cursor-pointer hover:bg-gray-50"
+          className="px-4 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
           onClick={() => navigate(`/sessions/${s.id}`)}
         >
-          <p className="text-sm font-medium text-gray-800 truncate">
+          <p className="text-sm font-medium text-gray-800 truncate dark:text-gray-100">
             {s.title || "(untitled)"}
           </p>
-          <p className="text-xs text-gray-400">{relativeTime(s.updatedAt)}</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500">{relativeTime(s.updatedAt)}</p>
         </li>
       ))}
     </ul>

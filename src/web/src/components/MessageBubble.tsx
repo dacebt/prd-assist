@@ -13,8 +13,8 @@ export default function MessageBubble({ role, content }: Props) {
       <div
         className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
           isUser
-            ? "bg-gray-200 text-gray-900"
-            : "bg-blue-50 text-gray-900 border border-blue-100"
+            ? "bg-gray-200 text-gray-900 dark:bg-gray-700 dark:text-gray-100"
+            : "bg-blue-50 text-gray-900 border border-blue-100 dark:bg-blue-950/40 dark:text-gray-100 dark:border-blue-900"
         }`}
       >
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
