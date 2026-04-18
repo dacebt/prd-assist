@@ -835,7 +835,9 @@ Report completion with: what was built, what was verified, what Verification Sce
 
 ## Adaptation Log
 
-_(Empty. Populated during work-mode if the spec needs to change.)_
+### 2026-04-17 — slice 3: `TurnDeps` store field named `store`, not `db`
+
+The Turn loop section of this spec declares `TurnDeps` with field `db: SessionStore`. During slice-3 implementation the field was named `store: SessionStore` to avoid naming ambiguity with the raw `better-sqlite3` `Database` handle also passed around inside `src/server/`. No behavior impact. Affected files: `src/server/turn.ts`, `src/server/routes.ts`, `src/server/turn.test.ts`. Slice 4 inherits the `store` name and adds `mcp: McpClient` alongside it.
 
 ## Implementation Slices
 

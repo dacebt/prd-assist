@@ -60,3 +60,32 @@ export async function fetchSession(id: string): Promise<Session> {
   if (!res.ok) throw new Error(`fetch session failed: ${res.status}`);
   return SessionSchema.parse(await res.json());
 }
+
+const SendMessageResponseSchema = z.object({ reply: z.string() });
+
+const ErrorResponseSchema = z.object({
+  error: z.string(),
+  message: z.string().optional(),
+});
+
+export async function sendMessage(sessionId: string, text: string): Promise<string> {
+  const res = await fetch(`/api/sessions/${sessionId}/messages`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+
+  if (!res.ok) {
+    let errorMessage = res.statusText;
+    try {
+      const errBody = ErrorResponseSchema.parse(await res.json());
+      errorMessage = errBody.message ?? errBody.error;
+    } catch {
+      // fallback to statusText
+    }
+    throw new Error(errorMessage);
+  }
+
+  const body = SendMessageResponseSchema.parse(await res.json());
+  return body.reply;
+}

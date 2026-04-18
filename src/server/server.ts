@@ -5,11 +5,16 @@ import { dirname } from "node:path";
 import { openDatabase } from "./db.js";
 import { createSessionStore } from "./sessions.js";
 import { registerRoutes } from "./routes.js";
+import type { LlmClient } from "./llm.js";
+import type { SessionMutex } from "./mutex.js";
 
 export interface ServerOptions {
   sqlitePath: string;
   hostname: string;
   port: number;
+  llm: LlmClient;
+  mutex: SessionMutex;
+  model: string;
 }
 
 export function startServer(opts: ServerOptions): { close: () => void } {
@@ -20,7 +25,14 @@ export function startServer(opts: ServerOptions): { close: () => void } {
   const db = openDatabase(opts.sqlitePath);
   const store = createSessionStore(db);
   const app = new Hono();
-  registerRoutes(app, store);
+
+  registerRoutes(app, {
+    store,
+    llm: opts.llm,
+    mutex: opts.mutex,
+    model: opts.model,
+    now: () => new Date(),
+  });
 
   const server = serve(
     { fetch: app.fetch, hostname: opts.hostname, port: opts.port },

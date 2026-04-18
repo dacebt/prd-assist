@@ -45,6 +45,8 @@ export interface SessionStore {
   createSession(now: Date): Session;
   listSessions(): SessionSummary[];
   getSession(id: string): Session | null;
+  persistUserMessage(session: Session): void;
+  persistAssistantMessage(session: Session): void;
 }
 
 export function initialPrd(now: Date): PRD {
@@ -68,6 +70,14 @@ export function createSessionStore(db: Database.Database): SessionStore {
 
   const getStmt = db.prepare(
     "SELECT id, title, created_at, updated_at, messages_json, prd_json FROM sessions WHERE id = ?",
+  );
+
+  const persistUserStmt = db.prepare(
+    "UPDATE sessions SET messages_json = ?, title = ?, updated_at = ? WHERE id = ?",
+  );
+
+  const persistAssistantStmt = db.prepare(
+    "UPDATE sessions SET messages_json = ?, updated_at = ? WHERE id = ?",
   );
 
   return {
@@ -103,6 +113,23 @@ export function createSessionStore(db: Database.Database): SessionStore {
         messages,
         prd,
       };
+    },
+
+    persistUserMessage(session: Session): void {
+      persistUserStmt.run(
+        JSON.stringify(session.messages),
+        session.title,
+        session.updatedAt,
+        session.id,
+      );
+    },
+
+    persistAssistantMessage(session: Session): void {
+      persistAssistantStmt.run(
+        JSON.stringify(session.messages),
+        session.updatedAt,
+        session.id,
+      );
     },
   };
 }

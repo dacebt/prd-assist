@@ -28,13 +28,22 @@ export default function SessionPage() {
       });
   }, [id]);
 
+  function handleTurnComplete(updatedSession: Session) {
+    if (!id) return;
+    fetchSession(id)
+      .then((fresh) => setState({ status: "loaded", session: fresh }))
+      .catch(() => {
+        setState({ status: "loaded", session: updatedSession });
+      });
+  }
+
   return (
     <div className="flex h-screen">
       <Sidebar />
       <div className="flex flex-1 overflow-hidden">
         {state.status === "loaded" ? (
           <>
-            <ChatPane session={state.session} />
+            <ChatPane session={state.session} onTurnComplete={handleTurnComplete} />
             <div className="flex-1 overflow-y-auto bg-gray-50">
               <PrdPane prd={state.session.prd} />
             </div>

@@ -3,14 +3,29 @@ import { z } from "zod";
 import { Hono } from "hono";
 import { openDatabase } from "./db.js";
 import { createSessionStore } from "./sessions.js";
-import { registerRoutes } from "./routes.js";
+import { registerRoutes, type RouteDeps } from "./routes.js";
+import { createSessionMutex } from "./mutex.js";
+import type { LlmClient } from "./llm.js";
 
-function buildApp() {
+function makeStubLlm(reply: string = "stub reply"): LlmClient {
+  return {
+    chat: () => Promise.resolve({ role: "assistant", content: reply }),
+  };
+}
+
+function buildApp(llmOverride?: LlmClient) {
   const db = openDatabase(":memory:");
   const store = createSessionStore(db);
   const app = new Hono();
-  registerRoutes(app, store);
-  return app;
+  const deps: RouteDeps = {
+    store,
+    llm: llmOverride ?? makeStubLlm(),
+    mutex: createSessionMutex(),
+    model: "test-model",
+    now: () => new Date("2026-01-01T10:00:00.000Z"),
+  };
+  registerRoutes(app, deps);
+  return { app, store };
 }
 
 async function parseJson<T>(res: Response, schema: z.ZodType<T>): Promise<T> {
@@ -19,7 +34,7 @@ async function parseJson<T>(res: Response, schema: z.ZodType<T>): Promise<T> {
 
 describe("GET /api/sessions", () => {
   it("returns empty array when no sessions exist", async () => {
-    const app = buildApp();
+    const { app } = buildApp();
     const res = await app.fetch(new Request("http://localhost/api/sessions"));
     expect(res.status).toBe(200);
     const body = await parseJson(res, z.array(z.unknown()));
@@ -29,7 +44,7 @@ describe("GET /api/sessions", () => {
 
 describe("POST /api/sessions", () => {
   it("returns 201 with { id }", async () => {
-    const app = buildApp();
+    const { app } = buildApp();
     const res = await app.fetch(
       new Request("http://localhost/api/sessions", { method: "POST" }),
     );
@@ -41,7 +56,7 @@ describe("POST /api/sessions", () => {
 
 describe("GET /api/sessions/:id", () => {
   it("returns the session after creation", async () => {
-    const app = buildApp();
+    const { app } = buildApp();
 
     const createRes = await app.fetch(
       new Request("http://localhost/api/sessions", { method: "POST" }),
@@ -55,12 +70,149 @@ describe("GET /api/sessions/:id", () => {
   });
 
   it("returns 404 with error session_not_found for unknown id", async () => {
-    const app = buildApp();
+    const { app } = buildApp();
     const res = await app.fetch(
       new Request("http://localhost/api/sessions/unknown-id"),
     );
     expect(res.status).toBe(404);
     const body = await parseJson(res, z.object({ error: z.string() }));
     expect(body.error).toBe("session_not_found");
+  });
+});
+
+describe("POST /api/sessions/:id/messages", () => {
+  it("returns 400 when text is empty string", async () => {
+    const { app, store } = buildApp();
+    const session = store.createSession(new Date());
+    const res = await app.fetch(
+      new Request(`http://localhost/api/sessions/${session.id}/messages`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ text: "" }),
+      }),
+    );
+    expect(res.status).toBe(400);
+    const body = await parseJson(res, z.object({ error: z.string() }));
+    expect(body.error).toBe("invalid_request");
+  });
+
+  it("returns 400 when text is whitespace only", async () => {
+    const { app, store } = buildApp();
+    const session = store.createSession(new Date());
+    const res = await app.fetch(
+      new Request(`http://localhost/api/sessions/${session.id}/messages`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ text: "   " }),
+      }),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 400 when text exceeds 10000 trimmed characters", async () => {
+    const { app, store } = buildApp();
+    const session = store.createSession(new Date());
+    const longText = "a".repeat(10001);
+    const res = await app.fetch(
+      new Request(`http://localhost/api/sessions/${session.id}/messages`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ text: longText }),
+      }),
+    );
+    expect(res.status).toBe(400);
+    const body = await parseJson(res, z.object({ error: z.string() }));
+    expect(body.error).toBe("invalid_request");
+  });
+
+  it("returns 404 for unknown session id", async () => {
+    const { app } = buildApp();
+    const res = await app.fetch(
+      new Request("http://localhost/api/sessions/no-such-id/messages", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ text: "hello" }),
+      }),
+    );
+    expect(res.status).toBe(404);
+    const body = await parseJson(res, z.object({ error: z.string() }));
+    expect(body.error).toBe("session_not_found");
+  });
+
+  it("happy path returns 200 with { reply }", async () => {
+    const { app, store } = buildApp(makeStubLlm("the reply content"));
+    const session = store.createSession(new Date());
+    const res = await app.fetch(
+      new Request(`http://localhost/api/sessions/${session.id}/messages`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ text: "hello" }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    const body = await parseJson(res, z.object({ reply: z.string() }));
+    expect(body.reply).toBe("the reply content");
+  });
+
+  it("session after happy path has both user and assistant messages", async () => {
+    const { app, store } = buildApp(makeStubLlm("assistant said this"));
+    const session = store.createSession(new Date());
+    await app.fetch(
+      new Request(`http://localhost/api/sessions/${session.id}/messages`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ text: "user said this" }),
+      }),
+    );
+    const updated = store.getSession(session.id);
+    expect(updated?.messages).toHaveLength(2);
+    expect(updated?.messages[0]?.role).toBe("user");
+    expect(updated?.messages[0]?.content).toBe("user said this");
+    expect(updated?.messages[1]?.role).toBe("assistant");
+    expect(updated?.messages[1]?.content).toBe("assistant said this");
+  });
+
+  it("concurrent POST to same session returns 409 immediately", async () => {
+    let resolveFirst!: () => void;
+    const slowLlm: LlmClient = {
+      chat: () =>
+        new Promise((resolve) => {
+          resolveFirst = () => resolve({ role: "assistant", content: "done" });
+        }),
+    };
+
+    const { app, store } = buildApp(slowLlm);
+    const session = store.createSession(new Date());
+    const url = `http://localhost/api/sessions/${session.id}/messages`;
+    const body = JSON.stringify({ text: "hello" });
+    const headers = { "content-type": "application/json" };
+
+    const firstPromise = app.fetch(new Request(url, { method: "POST", headers, body }));
+    await new Promise((r) => setTimeout(r, 10));
+
+    const secondRes = await app.fetch(new Request(url, { method: "POST", headers, body }));
+    expect(secondRes.status).toBe(409);
+    const secondBody = await parseJson(secondRes, z.object({ error: z.string() }));
+    expect(secondBody.error).toBe("session_busy");
+
+    resolveFirst();
+    const firstRes = await firstPromise;
+    expect(firstRes.status).toBe(200);
+  });
+});
+
+describe("POST /api/sessions (title derivation)", () => {
+  it("sets title from first user message", async () => {
+    const { app, store } = buildApp();
+    const session = store.createSession(new Date());
+    await app.fetch(
+      new Request(`http://localhost/api/sessions/${session.id}/messages`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ text: "Build me a PRD assistant" }),
+      }),
+    );
+    const updated = store.getSession(session.id);
+    expect(updated?.title).toBe("Build me a PRD assistant");
   });
 });
