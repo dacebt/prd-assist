@@ -64,17 +64,17 @@ export default function SessionPage() {
               onBeforeSend={handleBeforeSend}
               onAfterSend={handleAfterSend}
             />
-            <div className="flex-1 overflow-y-auto bg-gray-50">
+            <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-950">
               <PrdPane prd={state.session.prd} />
             </div>
           </>
         ) : (
-          <div className="flex-1 overflow-y-auto bg-gray-50 p-4">
+          <div className="flex-1 overflow-y-auto bg-gray-50 p-4 dark:bg-gray-950">
             {state.status === "loading" && (
-              <p className="text-sm text-gray-400 italic">Loading…</p>
+              <p className="text-sm text-gray-400 italic dark:text-gray-500">Loading…</p>
             )}
             {state.status === "error" && (
-              <p className="text-sm text-red-500">{state.message}</p>
+              <p className="text-sm text-red-500 dark:text-red-400">{state.message}</p>
             )}
           </div>
         )}
