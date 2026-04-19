@@ -1,12 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { z } from "zod";
 import { Hono } from "hono";
-import { openDatabase } from "./db.js";
-import { createSessionStore } from "./sessions.js";
-import { registerRoutes, type RouteDeps } from "./routes.js";
-import { createSessionMutex } from "./mutex.js";
-import type { LlmClient } from "./llm.js";
-import type { McpClient } from "./mcpClient.js";
+import { openDatabase } from "./db";
+import { createSessionStore } from "./sessions";
+import { registerRoutes, type RouteDeps } from "./routes";
+import { createSessionMutex } from "./mutex";
+import type { LlmClient } from "./llm";
+import type { McpClient } from "./mcpClient";
 
 function makeStubLlm(reply: string = "stub reply"): LlmClient {
   return {

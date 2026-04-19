@@ -1,11 +1,11 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import type { SessionStore } from "./sessions.js";
-import type { LlmClient } from "./llm.js";
-import type { McpClient } from "./mcpClient.js";
-import type { SessionMutex } from "./mutex.js";
-import { handleTurn, SessionBusyError, SessionNotFoundError } from "./turn.js";
-import type { TurnDeps } from "./turn.js";
+import type { SessionStore } from "./sessions";
+import type { LlmClient } from "./llm";
+import type { McpClient } from "./mcpClient";
+import type { SessionMutex } from "./mutex";
+import { handleTurn, SessionBusyError, SessionNotFoundError } from "./turn";
+import type { TurnDeps } from "./turn";
 
 const IdParamSchema = z.object({
   id: z.string().min(1),

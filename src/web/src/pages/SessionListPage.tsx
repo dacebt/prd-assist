@@ -1,4 +1,4 @@
-import Sidebar from "../components/Sidebar.js";
+import Sidebar from "../components/Sidebar";
 
 export default function SessionListPage() {
   return (

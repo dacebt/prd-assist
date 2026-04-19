@@ -37,6 +37,7 @@ Convert the single-package `prd-assist` repo into a Turborepo + pnpm workspaces 
 - Package manager: pnpm ≥ 9, workspaces via `pnpm-workspace.yaml`
 - Monorepo orchestrator: Turborepo (`turbo.json` at root)
 - Module system: ESM throughout (`"type": "module"` in every package.json)
+- Module resolution: `moduleResolution: "bundler"`, `module: "ES2022"` for every package. Adopted slice 2 by user direction so source is free of `.js` extensions on relative imports. `tsx` (dev), Vite (web), and `tsc --noEmit` (typecheck) all resolve extensionless imports natively; no package emits compiled JS that Node's native ESM resolver would consume, so the original `nodenext` choice bought nothing and cost noise.
 - Workspace package naming: `@prd-assist/<name>` (`@prd-assist/server`, `@prd-assist/web`, `@prd-assist/mcp`, `@prd-assist/shared`)
 - Workspace dependency syntax: `"@prd-assist/shared": "workspace:*"`
 - Directory structure:
@@ -330,6 +331,12 @@ Locked details (apply to all slices):
 - Verification posture: every slice must pass the Migration Invariants and the spec's Verification Commands before commit.
 
 ## Adaptation Log
+
+### 2026-04-19 — Module resolution switched to `bundler` for all packages
+- **Conflict:** Plan locked `nodenext` for server/mcp tsconfigs. Reality: `nodenext` requires `.js` suffix on every relative import (because TS does not rewrite paths and Node's ESM loader would, hypothetically, consume the suffixed paths). User strongly objects to seeing `.js` in `.ts` source.
+- **Why bundler is fine:** `tsx` runs server/mcp source directly in dev; Vite handles web; `tsc --noEmit` is the only TS invocation. No compiled `.js` is ever produced for Node's native loader to resolve. The `nodenext` choice was paying syntactic cost for a runtime behavior that does not exist in this project.
+- **Change:** Shared Foundation now locks `moduleResolution: "bundler"`, `module: "ES2022"` for every package. Slices 3–5 will declare those values in their per-app tsconfigs. Slice 2 implementation already adopted this; the spec's Requirements section was superseded in-flight.
+- **Affects:** Slice 2 (already shipped under this rule), slices 3–5 (future).
 
 ### 2026-04-19 — Git strategy switched to Full Agentic for slices 2–5
 - Slice 1 (`workspace-skeleton`) was authored and shipped under Full HITL (commit `99a0bfa`). After that landed, user directed the remaining slices run Full Agentic to remove the inter-slice handoff.

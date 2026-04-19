@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Session, SessionSummary } from "../../shared/types.js";
+import type { Session, SessionSummary } from "@prd-assist/shared";
 
 const SectionStatusSchema = z.enum(["empty", "draft", "confirmed"]);
 

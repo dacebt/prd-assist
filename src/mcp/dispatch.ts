@@ -1,4 +1,4 @@
-import type { createTools } from "./tools.js";
+import type { createTools } from "./tools";
 
 export type ToolResultEnvelope = {
   content: [{ type: "text"; text: string }];

@@ -1,0 +1,22 @@
+{
+  "name": "@prd-assist/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": { "types": "./src/index.ts", "default": "./src/index.ts" },
+    "./schemas": { "types": "./src/schemas.ts", "default": "./src/schemas.ts" }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "eslint --no-error-on-unmatched-pattern 'src/**/*.ts'"
+  },
+  "dependencies": {
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

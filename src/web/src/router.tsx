@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import SessionListPage from "./pages/SessionListPage.js";
-import SessionPage from "./pages/SessionPage.js";
+import SessionListPage from "./pages/SessionListPage";
+import SessionPage from "./pages/SessionPage";
 
 export default function Router() {
   return (

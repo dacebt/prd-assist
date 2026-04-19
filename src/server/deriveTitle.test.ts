@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { deriveTitle } from "./deriveTitle.js";
+import { deriveTitle } from "./deriveTitle";
 
 describe("deriveTitle", () => {
   it("returns empty string for empty input", () => {

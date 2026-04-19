@@ -1,6 +1,6 @@
-import NewSessionButton from "./NewSessionButton.js";
-import SessionList from "./SessionList.js";
-import ThemeToggle from "./ThemeToggle.js";
+import NewSessionButton from "./NewSessionButton";
+import SessionList from "./SessionList";
+import ThemeToggle from "./ThemeToggle";
 
 export default function Sidebar() {
   return (

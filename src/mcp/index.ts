@@ -4,10 +4,10 @@ import {
   ListToolsRequestSchema,
   CallToolRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { openMcpDatabase } from "./db.js";
-import { createTools } from "./tools.js";
-import { TOOLS_MANIFEST } from "./manifest.js";
-import { dispatchTool } from "./dispatch.js";
+import { openMcpDatabase } from "./db";
+import { createTools } from "./tools";
+import { TOOLS_MANIFEST } from "./manifest";
+import { dispatchTool } from "./dispatch";
 
 async function main(): Promise<void> {
   const sqlitePath = process.env["SQLITE_PATH"] ?? "./data/prd-assist.sqlite";

@@ -1,6 +1,6 @@
-import type { PRD } from "../../../shared/types.js";
-import { SECTION_KEYS } from "../../../shared/sections.js";
-import SectionBlock from "./SectionBlock.js";
+import type { PRD } from "@prd-assist/shared";
+import { SECTION_KEYS } from "@prd-assist/shared";
+import SectionBlock from "./SectionBlock";
 
 interface Props {
   prd: PRD;

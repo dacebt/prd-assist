@@ -1,4 +1,4 @@
-import type { Session } from "../../../shared/types.js";
+import type { Session } from "@prd-assist/shared";
 
 interface StartPollingOpts {
   active: boolean;

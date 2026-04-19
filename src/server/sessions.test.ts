@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { openDatabase } from "./db.js";
-import { initialPrd, createSessionStore } from "./sessions.js";
-import { SECTION_KEYS } from "../shared/sections.js";
+import { openDatabase } from "./db";
+import { initialPrd, createSessionStore } from "./sessions";
+import { SECTION_KEYS } from "@prd-assist/shared";
 
 describe("initialPrd", () => {
   it("returns all 7 sections with empty content and empty status", () => {

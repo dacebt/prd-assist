@@ -1,6 +1,6 @@
-import { startServer } from "./server.js";
-import { createOpenAiLlmClient } from "./llm.js";
-import { createSessionMutex } from "./mutex.js";
+import { startServer } from "./server";
+import { createOpenAiLlmClient } from "./llm";
+import { createSessionMutex } from "./mutex";
 
 async function main(): Promise<void> {
   const sqlitePath = process.env["SQLITE_PATH"] ?? "./data/prd-assist.sqlite";

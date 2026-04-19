@@ -1,4 +1,4 @@
-import { SECTION_KEYS_ARRAY } from "./validate.js";
+import { SECTION_KEYS_ARRAY } from "./validate";
 
 const KEY_ENUM = [...SECTION_KEYS_ARRAY] as [
   "vision",

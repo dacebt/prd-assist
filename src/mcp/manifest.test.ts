@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { TOOLS_MANIFEST } from "./manifest.js";
-import { SECTION_KEYS_ARRAY } from "./validate.js";
+import { TOOLS_MANIFEST } from "./manifest";
+import { SECTION_KEYS_ARRAY } from "./validate";
 
 const EXPECTED_SECTION_KEYS = [...SECTION_KEYS_ARRAY];
 

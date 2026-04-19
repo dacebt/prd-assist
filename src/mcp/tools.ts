@@ -1,8 +1,8 @@
 import type Database from "better-sqlite3";
 import { z } from "zod";
-import type { PRD, Section, SectionKey } from "../shared/types.js";
-import { SECTION_KEYS } from "../shared/sections.js";
-import { SectionKeySchema, SectionStatusSchema, SECTION_KEYS_ARRAY } from "./validate.js";
+import type { PRD, Section, SectionKey } from "@prd-assist/shared";
+import { SECTION_KEYS } from "@prd-assist/shared";
+import { SectionKeySchema, SectionStatusSchema, SECTION_KEYS_ARRAY } from "./validate";
 
 const MAX_CONTENT_LENGTH = 10000;
 

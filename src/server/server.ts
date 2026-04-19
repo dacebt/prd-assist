@@ -2,12 +2,12 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { openDatabase } from "./db.js";
-import { createSessionStore } from "./sessions.js";
-import { registerRoutes } from "./routes.js";
-import { createMcpClient } from "./mcpClient.js";
-import type { LlmClient } from "./llm.js";
-import type { SessionMutex } from "./mutex.js";
+import { openDatabase } from "./db";
+import { createSessionStore } from "./sessions";
+import { registerRoutes } from "./routes";
+import { createMcpClient } from "./mcpClient";
+import type { LlmClient } from "./llm";
+import type { SessionMutex } from "./mutex";
 
 export interface ServerOptions {
   sqlitePath: string;

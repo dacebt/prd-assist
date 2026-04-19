@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import Database from "better-sqlite3";
-import { createTools } from "./tools.js";
-import { SECTION_KEYS } from "../shared/sections.js";
-import type { PRD, Section } from "../shared/types.js";
+import { createTools } from "./tools";
+import { SECTION_KEYS } from "@prd-assist/shared";
+import type { PRD, Section } from "@prd-assist/shared";
 
 function openTestDb(): Database.Database {
   const db = new Database(":memory:");

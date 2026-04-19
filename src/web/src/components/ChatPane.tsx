@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import type { Session } from "../../../shared/types.js";
-import { sendMessage } from "../api.js";
-import MessageBubble from "./MessageBubble.js";
+import type { Session } from "@prd-assist/shared";
+import { sendMessage } from "../api";
+import MessageBubble from "./MessageBubble";
 
 interface Props {
   session: Session;

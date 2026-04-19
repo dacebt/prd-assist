@@ -1,7 +1,7 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { Section, SectionKey } from "../../../shared/types.js";
-import { SECTION_LABELS } from "../../../shared/sections.js";
+import type { Section, SectionKey } from "@prd-assist/shared";
+import { SECTION_LABELS } from "@prd-assist/shared";
 
 const STATUS_PILL: Record<Section["status"], string> = {
   empty: "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400",

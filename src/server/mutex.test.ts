@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createSessionMutex } from "./mutex.js";
+import { createSessionMutex } from "./mutex";
 
 describe("createSessionMutex", () => {
   it("tryAcquire returns true for a fresh session id", () => {

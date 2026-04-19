@@ -1,4 +1,4 @@
-import type { SectionKey } from "./types.js";
+import type { SectionKey } from "./types";
 
 export const SECTION_KEYS: readonly SectionKey[] = [
   "vision",
@@ -19,3 +19,13 @@ export const SECTION_LABELS: Record<SectionKey, string> = {
   outOfScope: "Out of Scope",
   openQuestions: "Open Questions",
 };
+
+export const SECTION_KEYS_ARRAY = SECTION_KEYS as unknown as [
+  "vision",
+  "problem",
+  "targetUsers",
+  "goals",
+  "coreFeatures",
+  "outOfScope",
+  "openQuestions",
+];

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mcpToolsToOpenAi, type McpToolDescriptor } from "./mcpClient.js";
+import { mcpToolsToOpenAi, type McpToolDescriptor } from "./mcpClient";
 
 describe("mcpToolsToOpenAi", () => {
   it("maps each MCP tool descriptor to an OpenAI function-tool entry with parameters == inputSchema", () => {

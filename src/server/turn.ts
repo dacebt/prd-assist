@@ -1,10 +1,10 @@
-import type { SessionStore } from "./sessions.js";
-import type { LlmClient, AssistantMessage } from "./llm.js";
-import type { McpClient } from "./mcpClient.js";
-import { mcpToolsToOpenAi } from "./mcpClient.js";
-import type { SessionMutex } from "./mutex.js";
-import { buildSystemPrompt } from "./prompt.js";
-import { deriveTitle } from "./deriveTitle.js";
+import type { SessionStore } from "./sessions";
+import type { LlmClient, AssistantMessage } from "./llm";
+import type { McpClient } from "./mcpClient";
+import { mcpToolsToOpenAi } from "./mcpClient";
+import type { SessionMutex } from "./mutex";
+import { buildSystemPrompt } from "./prompt";
+import { deriveTitle } from "./deriveTitle";
 
 export type TurnDeps = {
   store: SessionStore;

@@ -6,8 +6,8 @@
  * behavior the spec requires.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { startPolling } from "./polling.js";
-import type { Session } from "../../../shared/types.js";
+import { startPolling } from "./polling";
+import type { Session } from "@prd-assist/shared";
 
 const STUB_SESSION: Session = {
   id: "s1",

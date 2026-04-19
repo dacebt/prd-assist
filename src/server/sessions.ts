@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import { z } from "zod";
-import type { PRD, Section, Session, SessionSummary } from "../shared/types.js";
-import { SECTION_KEYS } from "../shared/sections.js";
+import type { PRD, Section, Session, SessionSummary } from "@prd-assist/shared";
+import { SECTION_KEYS } from "@prd-assist/shared";
 
 const SectionSchema = z.object({
   content: z.string(),

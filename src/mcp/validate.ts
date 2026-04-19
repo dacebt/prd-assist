@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { SECTION_KEYS } from "../shared/sections.js";
+import { SECTION_KEYS } from "@prd-assist/shared";
 
 // zod.enum requires a non-empty tuple literal — derive from SECTION_KEYS at type level.
 export const SECTION_KEYS_ARRAY = SECTION_KEYS as unknown as [

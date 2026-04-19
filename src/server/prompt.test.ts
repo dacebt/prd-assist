@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildSystemPrompt } from "./prompt.js";
+import { buildSystemPrompt } from "./prompt";
 
 const RULE_1 =
   "1. Before calling `update_section` on any section, you must know the section's current content. Call `get_prd` as the first tool call of every turn if you do not already have fresh PRD content from a tool result in this turn.";

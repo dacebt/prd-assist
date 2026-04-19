@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
-import type { Session } from "../../../shared/types.js";
-import { fetchSession } from "../api.js";
-import { startPolling } from "./polling.js";
+import type { Session } from "@prd-assist/shared";
+import { fetchSession } from "../api";
+import { startPolling } from "./polling";
 
 interface UseSessionPollingOpts {
   sessionId: string | undefined;

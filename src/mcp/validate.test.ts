@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { SectionKeySchema, SectionStatusSchema } from "./validate.js";
+import { SectionKeySchema, SectionStatusSchema } from "./validate";
 
 describe("SectionKeySchema", () => {
   it("accepts all seven valid keys", () => {

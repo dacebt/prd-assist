@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import Database from "better-sqlite3";
-import { openDatabase } from "../server/db.js";
-import { createSessionStore } from "../server/sessions.js";
-import { createTools } from "./tools.js";
-import { dispatchTool } from "./dispatch.js";
+import { openDatabase } from "../server/db";
+import { createSessionStore } from "../server/sessions";
+import { createTools } from "./tools";
+import { dispatchTool } from "./dispatch";
 
 function seed(): { db: Database.Database; sessionId: string } {
   const db = openDatabase(":memory:");

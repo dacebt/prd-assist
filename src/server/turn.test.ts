@@ -1,11 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
-import { handleTurn, SessionBusyError, SessionNotFoundError, type TurnDeps } from "./turn.js";
-import type { LlmClient, AssistantMessage } from "./llm.js";
-import type { McpClient, McpToolDescriptor } from "./mcpClient.js";
-import type { SessionStore } from "./sessions.js";
-import type { SessionMutex } from "./mutex.js";
-import type { Session } from "../shared/types.js";
-import { createSessionMutex } from "./mutex.js";
+import { handleTurn, SessionBusyError, SessionNotFoundError, type TurnDeps } from "./turn";
+import type { LlmClient, AssistantMessage } from "./llm";
+import type { McpClient, McpToolDescriptor } from "./mcpClient";
+import type { SessionStore } from "./sessions";
+import type { SessionMutex } from "./mutex";
+import type { Session } from "@prd-assist/shared";
+import { createSessionMutex } from "./mutex";
 
 function makeSession(overrides: Partial<Session> = {}): Session {
   return {

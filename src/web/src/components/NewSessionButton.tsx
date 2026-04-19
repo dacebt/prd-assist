@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { createSession } from "../api.js";
+import { createSession } from "../api";
 
 export default function NewSessionButton() {
   const navigate = useNavigate();

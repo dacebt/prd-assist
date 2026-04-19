@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync, rmSync } from "node:fs";
-import { startServer } from "../src/server/server.js";
-import { createOpenAiLlmClient } from "../src/server/llm.js";
-import { createSessionMutex } from "../src/server/mutex.js";
-import type { PRD } from "../src/shared/types.js";
+import { startServer } from "../src/server/server";
+import { createOpenAiLlmClient } from "../src/server/llm";
+import { createSessionMutex } from "../src/server/mutex";
+import type { PRD } from "@prd-assist/shared";
 
 const HARNESS_SQLITE = "./tmp/harness.sqlite";
 const LM_STUDIO_BASE_URL = process.env["LM_STUDIO_BASE_URL"] ?? "http://localhost:1234/v1";

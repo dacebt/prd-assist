@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { fetchSession } from "../api.js";
-import type { Session } from "../../../shared/types.js";
-import Sidebar from "../components/Sidebar.js";
-import ChatPane from "../components/ChatPane.js";
-import PrdPane from "../components/PrdPane.js";
-import ResizeHandle from "../components/ResizeHandle.js";
-import { useSessionPolling } from "../hooks/useSessionPolling.js";
-import { usePanelLayout, PRD_MIN, CHAT_MIN } from "../hooks/usePanelLayout.js";
+import { fetchSession } from "../api";
+import type { Session } from "@prd-assist/shared";
+import Sidebar from "../components/Sidebar";
+import ChatPane from "../components/ChatPane";
+import PrdPane from "../components/PrdPane";
+import ResizeHandle from "../components/ResizeHandle";
+import { useSessionPolling } from "../hooks/useSessionPolling";
+import { usePanelLayout, PRD_MIN, CHAT_MIN } from "../hooks/usePanelLayout";
 
 const HANDLE_WIDTH = 4;
 

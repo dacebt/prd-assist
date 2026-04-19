@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { fetchSessions } from "../api.js";
-import type { SessionSummary } from "../../../shared/types.js";
+import { fetchSessions } from "../api";
+import type { SessionSummary } from "@prd-assist/shared";
 
 function relativeTime(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
