@@ -1,13 +1,10 @@
 import type { Hono } from "hono";
 import { z } from "zod";
-import { withBody, withParam } from "../middleware/validate";
+import { parseBody, parseParam, rejectOversizedPayload } from "../middleware/validate";
 import { mapErrorToResponse } from "../middleware/errors";
 import { handleTurn, type TurnDeps } from "../turn";
-import type { InternalRouteDeps } from "./index";
-
-const IdParamSchema = z.object({
-  id: z.string().min(1),
-});
+import type { TurnConfig } from "../config";
+import { IdParamSchema, type RouteDeps } from "./index";
 
 const PostMessageBodySchema = z.object({
   text: z
@@ -20,39 +17,39 @@ const PostMessageBodySchema = z.object({
 
 const MAX_PAYLOAD_BYTES = 64 * 1024;
 
-export function register(app: Hono, deps: InternalRouteDeps): void {
+export function register(
+  app: Hono,
+  deps: RouteDeps,
+  turnConfig: Omit<TurnConfig, "model">,
+): void {
   const turnDeps: TurnDeps = {
     store: deps.store,
     llm: deps.llm,
     mcp: deps.mcp,
     mutex: deps.mutex,
     now: deps.now,
-    config: {
-      model: deps.model,
-      ...deps.turnConfig,
-    },
+    config: { model: deps.model, ...turnConfig },
   };
 
-  app.post(
-    "/api/sessions/:id/messages",
-    async (c, next) => {
-      const contentLength = c.req.raw.headers.get("content-length");
-      if (contentLength !== null && parseInt(contentLength, 10) > MAX_PAYLOAD_BYTES) {
-        return c.json({ error: "payload_too_large" }, 413);
-      }
-      await next();
-    },
-    withParam(IdParamSchema),
-    withBody(PostMessageBodySchema),
-    async (c) => {
-      const { id } = c.get("param") as z.infer<typeof IdParamSchema>;
-      const { text } = c.get("body") as z.infer<typeof PostMessageBodySchema>;
-      try {
-        const reply = await handleTurn({ sessionId: id, userText: text, deps: turnDeps });
-        return c.json({ reply });
-      } catch (err) {
-        return mapErrorToResponse(c, err);
-      }
-    },
-  );
+  app.post("/api/sessions/:id/messages", async (c) => {
+    const oversized = rejectOversizedPayload(c, MAX_PAYLOAD_BYTES);
+    if (oversized) return oversized;
+
+    const param = parseParam(c, IdParamSchema);
+    if (!param.ok) return param.response;
+
+    const body = await parseBody(c, PostMessageBodySchema);
+    if (!body.ok) return body.response;
+
+    try {
+      const reply = await handleTurn({
+        sessionId: param.data.id,
+        userText: body.data.text,
+        deps: turnDeps,
+      });
+      return c.json({ reply });
+    } catch (err) {
+      return mapErrorToResponse(c, err);
+    }
+  });
 }

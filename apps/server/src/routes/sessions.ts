@@ -1,13 +1,8 @@
 import type { Hono } from "hono";
-import { z } from "zod";
-import { withParam } from "../middleware/validate";
-import type { InternalRouteDeps } from "./index";
+import { parseParam } from "../middleware/validate";
+import { IdParamSchema, type RouteDeps } from "./index";
 
-const IdParamSchema = z.object({
-  id: z.string().min(1),
-});
-
-export function register(app: Hono, deps: InternalRouteDeps): void {
+export function register(app: Hono, deps: RouteDeps): void {
   app.get("/api/sessions", (c) => {
     return c.json(deps.store.listSessions());
   });
@@ -17,9 +12,10 @@ export function register(app: Hono, deps: InternalRouteDeps): void {
     return c.json({ id: session.id }, 201);
   });
 
-  app.get("/api/sessions/:id", withParam(IdParamSchema), (c) => {
-    const { id } = c.get("param") as z.infer<typeof IdParamSchema>;
-    const session = deps.store.getSession(id);
+  app.get("/api/sessions/:id", (c) => {
+    const parsed = parseParam(c, IdParamSchema);
+    if (!parsed.ok) return parsed.response;
+    const session = deps.store.getSession(parsed.data.id);
     if (session === null) {
       return c.json({ error: "session_not_found" }, 404);
     }
