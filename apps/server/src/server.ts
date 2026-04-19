@@ -4,7 +4,7 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { openDatabase } from "./db";
 import { createSessionStore } from "./sessions";
-import { registerRoutes } from "./routes";
+import { registerRoutes } from "./routes/index";
 import { createMcpClient } from "./mcpClient";
 import type { LlmClient } from "./llm";
 import type { SessionMutex } from "./mutex";

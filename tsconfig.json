@@ -16,8 +16,9 @@
     "noEmit": true
   },
   "include": [
-    "src/**/*.ts",
-    "src/**/*.tsx",
+    "src/mcp/**/*.ts",
+    "src/web/**/*.ts",
+    "src/web/**/*.tsx",
     "scripts/**/*.ts"
   ]
 }

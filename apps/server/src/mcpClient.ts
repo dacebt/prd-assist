@@ -1,4 +1,3 @@
-import { resolve } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import type { LlmToolDescriptor } from "./llm";
@@ -28,24 +27,38 @@ export function mcpToolsToOpenAi(
   }));
 }
 
+function resolveLaunch(): { command: string; args: string[] } {
+  const cmd = process.env["MCP_COMMAND"];
+  if (cmd) {
+    const args = process.env["MCP_ARGS"]?.split(" ").filter(Boolean) ?? [];
+    return { command: cmd, args };
+  }
+
+  const legacyRoot = process.env["MCP_LEGACY_ROOT"];
+  if (legacyRoot) {
+    return {
+      command: "node",
+      args: ["--import", "tsx/esm", `${legacyRoot}/src/mcp/index.ts`],
+    };
+  }
+
+  throw new Error(
+    "MCP launch unconfigured: set MCP_COMMAND (with optional MCP_ARGS) or MCP_LEGACY_ROOT",
+  );
+}
+
 export async function createMcpClient(sqlitePath?: string): Promise<McpClient> {
-  const command = resolve(process.cwd(), "node_modules/.bin/tsx");
-  const args = [resolve(process.cwd(), "src/mcp/index.ts")];
+  const { command, args } = resolveLaunch();
 
   const env: Record<string, string> = { ...process.env } as Record<string, string>;
   if (sqlitePath !== undefined) {
     env["SQLITE_PATH"] = sqlitePath;
   }
 
-  const transport = new StdioClientTransport({
-    command,
-    args,
-    env,
-  });
+  const transport = new StdioClientTransport({ command, args, env });
 
   transport.onclose = () => {
     console.error("mcp_child_exited");
-    process.exit(1);
   };
 
   const client = new Client(

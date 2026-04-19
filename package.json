@@ -8,20 +8,17 @@
     "node": ">=20.11"
   },
   "scripts": {
-    "dev": "concurrently -n server,web -c cyan,magenta \"tsx watch src/server/index.ts\" \"vite\"",
-    "build": "tsc -p tsconfig.json && vite build",
-    "typecheck": "tsc --noEmit",
+    "dev": "MCP_LEGACY_ROOT=$PWD concurrently -n apps,web -c cyan,magenta \"turbo dev --filter=@prd-assist/server\" \"vite\"",
+    "build": "turbo build && vite build",
+    "typecheck": "tsc --noEmit && turbo typecheck",
     "lint": "eslint --no-error-on-unmatched-pattern 'src/**/*.{ts,tsx}' 'scripts/**/*.ts'",
-    "test": "vitest",
+    "test": "vitest run && turbo test",
     "doc-edit-check": "tsx scripts/doc-edit-check.ts"
   },
   "dependencies": {
-    "@hono/node-server": "^1.19.14",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@prd-assist/shared": "workspace:*",
     "better-sqlite3": "^11.10.0",
-    "hono": "^4.12.14",
-    "openai": "^4.104.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-markdown": "^9.1.0",

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import Database from "better-sqlite3";
-import { openDatabase } from "../server/db";
-import { createSessionStore } from "../server/sessions";
+import { openDatabase } from "../../apps/server/src/db";
+import { createSessionStore } from "../../apps/server/src/sessions";
 import { createTools } from "./tools";
 import { dispatchTool } from "./dispatch";
 

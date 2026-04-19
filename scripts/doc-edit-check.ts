@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, rmSync } from "node:fs";
-import { startServer } from "../src/server/server";
-import { createOpenAiLlmClient } from "../src/server/llm";
-import { createSessionMutex } from "../src/server/mutex";
+import { startServer } from "../apps/server/src/server";
+import { createOpenAiLlmClient } from "../apps/server/src/llm";
+import { createSessionMutex } from "../apps/server/src/mutex";
 import type { PRD } from "@prd-assist/shared";
 
 const HARNESS_SQLITE = "./tmp/harness.sqlite";

@@ -2,27 +2,7 @@ import Database from "better-sqlite3";
 import { z } from "zod";
 import type { PRD, Section, Session, SessionSummary } from "@prd-assist/shared";
 import { SECTION_KEYS } from "@prd-assist/shared";
-
-const SectionSchema = z.object({
-  content: z.string(),
-  updatedAt: z.string(),
-  status: z.enum(["empty", "draft", "confirmed"]),
-});
-
-const PrdSchema = z.object({
-  vision: SectionSchema,
-  problem: SectionSchema,
-  targetUsers: SectionSchema,
-  goals: SectionSchema,
-  coreFeatures: SectionSchema,
-  outOfScope: SectionSchema,
-  openQuestions: SectionSchema,
-});
-
-const ChatMessageSchema = z.discriminatedUnion("role", [
-  z.object({ role: z.literal("user"), content: z.string(), at: z.string() }),
-  z.object({ role: z.literal("assistant"), content: z.string(), at: z.string() }),
-]);
+import { ChatMessageSchema, PrdSchema } from "@prd-assist/shared/schemas";
 
 const MessagesSchema = z.array(ChatMessageSchema);
 

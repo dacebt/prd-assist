@@ -3,7 +3,7 @@ import { z } from "zod";
 import { Hono } from "hono";
 import { openDatabase } from "./db";
 import { createSessionStore } from "./sessions";
-import { registerRoutes, type RouteDeps } from "./routes";
+import { registerRoutes, type RouteDeps } from "./routes/index";
 import { createSessionMutex } from "./mutex";
 import type { LlmClient } from "./llm";
 import type { McpClient } from "./mcpClient";
