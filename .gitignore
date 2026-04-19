@@ -4,3 +4,7 @@ data
 tmp
 .DS_Store
 *.log
+data/
+.turbo/
+apps/*/dist/
+packages/*/dist/
