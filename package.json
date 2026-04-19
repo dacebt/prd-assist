@@ -8,21 +8,15 @@
     "node": ">=20.11"
   },
   "scripts": {
-    "dev": "concurrently -n apps,web -c cyan,magenta \"turbo dev --filter=@prd-assist/server\" \"vite\"",
-    "build": "turbo build && vite build",
-    "typecheck": "tsc --noEmit && turbo typecheck",
-    "lint": "eslint --no-error-on-unmatched-pattern 'src/**/*.{ts,tsx}' 'scripts/**/*.ts'",
-    "test": "vitest run && turbo test",
+    "dev": "turbo dev --filter=@prd-assist/server --filter=@prd-assist/web",
+    "build": "turbo build",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "lint": "eslint --no-error-on-unmatched-pattern 'apps/*/src/**/*.{ts,tsx}' 'packages/*/src/**/*.ts' 'scripts/**/*.ts'",
     "doc-edit-check": "tsx scripts/doc-edit-check.ts"
   },
   "dependencies": {
-    "@prd-assist/shared": "workspace:*",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-markdown": "^9.1.0",
-    "react-router-dom": "^6.30.3",
-    "remark-gfm": "^4.0.1",
-    "zod": "^3.25.76"
+    "@prd-assist/shared": "workspace:*"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -31,23 +25,13 @@
     ]
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.6.0",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
-    "@vitejs/plugin-react": "^4.7.0",
-    "autoprefixer": "^10.5.0",
-    "concurrently": "^9.2.1",
     "eslint": "^8.57.1",
-    "postcss": "^8.5.10",
     "prettier": "^3.8.3",
-    "tailwindcss": "^3.4.19",
     "tsx": "^4.21.0",
     "turbo": "^2.9.6",
-    "typescript": "^5.9.3",
-    "vite": "^5.4.21",
-    "vitest": "^2.1.9"
+    "typescript": "^5.9.3"
   }
 }

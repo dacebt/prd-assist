@@ -1,45 +1,6 @@
 import { z } from "zod";
 import type { Session, SessionSummary } from "@prd-assist/shared";
-
-const SectionStatusSchema = z.enum(["empty", "draft", "confirmed"]);
-
-const SectionSchema = z.object({
-  content: z.string(),
-  updatedAt: z.string(),
-  status: SectionStatusSchema,
-});
-
-const PrdSchema = z.object({
-  vision: SectionSchema,
-  problem: SectionSchema,
-  targetUsers: SectionSchema,
-  goals: SectionSchema,
-  coreFeatures: SectionSchema,
-  outOfScope: SectionSchema,
-  openQuestions: SectionSchema,
-});
-
-const ChatMessageSchema = z.discriminatedUnion("role", [
-  z.object({ role: z.literal("user"), content: z.string(), at: z.string() }),
-  z.object({ role: z.literal("assistant"), content: z.string(), at: z.string() }),
-]);
-
-const SessionSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-  messages: z.array(ChatMessageSchema),
-  prd: PrdSchema,
-});
-
-const SessionSummarySchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  updatedAt: z.string(),
-});
-
-const SessionListSchema = z.array(SessionSummarySchema);
+import { SessionSchema, SessionListSchema } from "@prd-assist/shared/schemas";
 
 const CreateSessionResponseSchema = z.object({ id: z.string() });
 
