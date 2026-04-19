@@ -5,7 +5,18 @@
       "cache": false,
       "persistent": true,
       "passThroughEnv": [
-        "MCP_LEGACY_ROOT",
+        "MCP_COMMAND",
+        "MCP_ARGS",
+        "SQLITE_PATH",
+        "LM_STUDIO_BASE_URL",
+        "LM_STUDIO_MODEL"
+      ]
+    },
+    "@prd-assist/server#dev": {
+      "cache": false,
+      "persistent": true,
+      "dependsOn": ["@prd-assist/mcp#typecheck"],
+      "passThroughEnv": [
         "MCP_COMMAND",
         "MCP_ARGS",
         "SQLITE_PATH",

@@ -1,5 +1,5 @@
 {
-  "name": "@prd-assist/server",
+  "name": "@prd-assist/mcp",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,13 +11,9 @@
     "lint": "eslint --no-error-on-unmatched-pattern 'src/**/*.ts'"
   },
   "dependencies": {
-    "@hono/node-server": "^1.19.14",
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "@prd-assist/mcp": "workspace:*",
     "@prd-assist/shared": "workspace:*",
     "better-sqlite3": "^11.10.0",
-    "hono": "^4.12.14",
-    "openai": "^4.104.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {

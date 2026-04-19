@@ -1,4 +1,4 @@
-import { SECTION_KEYS_ARRAY } from "./validate";
+import { SECTION_KEYS_ARRAY } from "@prd-assist/shared";
 
 const KEY_ENUM = [...SECTION_KEYS_ARRAY] as [
   "vision",

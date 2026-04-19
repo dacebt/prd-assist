@@ -1,15 +1,30 @@
 import { describe, it, expect } from "vitest";
 import Database from "better-sqlite3";
-import { openDatabase } from "../../apps/server/src/db";
-import { createSessionStore } from "../../apps/server/src/sessions";
+import { SECTION_KEYS } from "@prd-assist/shared";
 import { createTools } from "./tools";
 import { dispatchTool } from "./dispatch";
 
 function seed(): { db: Database.Database; sessionId: string } {
-  const db = openDatabase(":memory:");
-  const store = createSessionStore(db);
-  const session = store.createSession(new Date("2026-01-01T00:00:00.000Z"));
-  return { db, sessionId: session.id };
+  const db = new Database(":memory:");
+  db.exec(`
+    CREATE TABLE sessions (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      messages_json TEXT NOT NULL DEFAULT '[]',
+      prd_json TEXT NOT NULL
+    );
+  `);
+  const sessionId = "test-session";
+  const ts = "2026-01-01T00:00:00.000Z";
+  const prd = Object.fromEntries(
+    SECTION_KEYS.map((k) => [k, { content: "", status: "empty", updatedAt: ts }]),
+  );
+  db.prepare(
+    "INSERT INTO sessions (id, title, created_at, updated_at, prd_json) VALUES (?, ?, ?, ?, ?)",
+  ).run(sessionId, "", ts, ts, JSON.stringify(prd));
+  return { db, sessionId };
 }
 
 describe("dispatchTool wire format", () => {

@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import type { LlmToolDescriptor } from "./llm";
@@ -34,17 +36,10 @@ function resolveLaunch(): { command: string; args: string[] } {
     return { command: cmd, args };
   }
 
-  const legacyRoot = process.env["MCP_LEGACY_ROOT"];
-  if (legacyRoot) {
-    return {
-      command: "node",
-      args: ["--import", "tsx/esm", `${legacyRoot}/src/mcp/index.ts`],
-    };
-  }
-
-  throw new Error(
-    "MCP launch unconfigured: set MCP_COMMAND (with optional MCP_ARGS) or MCP_LEGACY_ROOT",
-  );
+  const pkgUrl = import.meta.resolve("@prd-assist/mcp/package.json");
+  const pkgPath = fileURLToPath(pkgUrl);
+  const entry = join(dirname(pkgPath), "src/index.ts");
+  return { command: "node", args: ["--import", "tsx/esm", entry] };
 }
 
 export async function createMcpClient(sqlitePath?: string): Promise<McpClient> {

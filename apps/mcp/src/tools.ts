@@ -1,29 +1,13 @@
 import type Database from "better-sqlite3";
 import { z } from "zod";
 import type { PRD, Section, SectionKey } from "@prd-assist/shared";
-import { SECTION_KEYS } from "@prd-assist/shared";
-import { SectionKeySchema, SectionStatusSchema, SECTION_KEYS_ARRAY } from "./validate";
+import { SECTION_KEYS, SECTION_KEYS_ARRAY } from "@prd-assist/shared";
+import { PrdSchema, SectionKeySchema, SectionStatusSchema } from "@prd-assist/shared/schemas";
 
 const MAX_CONTENT_LENGTH = 10000;
 
 const PrdRowSchema = z.object({
   prd_json: z.string(),
-});
-
-const SectionSchema = z.object({
-  content: z.string(),
-  updatedAt: z.string(),
-  status: z.enum(["empty", "draft", "confirmed"]),
-});
-
-const PrdSchema = z.object({
-  vision: SectionSchema,
-  problem: SectionSchema,
-  targetUsers: SectionSchema,
-  goals: SectionSchema,
-  coreFeatures: SectionSchema,
-  outOfScope: SectionSchema,
-  openQuestions: SectionSchema,
 });
 
 type GetPrdArgs = { session_id: string };
