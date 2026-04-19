@@ -166,7 +166,7 @@ Add `turbo` to `devDependencies` via `pnpm add -Dw turbo`. Accept whatever caret
 ## Build Process
 
 ### Git Strategy
-**Full HITL** — AI does not commit. After each slice passes gates, AI pauses and hands control to the user to commit manually before the next slice begins. Same cadence applies to all 5 slices of the monorepo-restructure plan.
+**Full HITL** — AI does not commit. After each slice passes gates, AI pauses and hands control to the user to commit manually before the next slice begins. Applies to slice 1 only. Slices 2–5 use **Full Agentic** (see Adaptation Log entry 2026-04-19 — git strategy changed to Full Agentic for slices 2–5).
 
 Locked details:
 - **Branch model:** Direct on `main`. No feature branches, no long-lived refactor branch.
@@ -321,6 +321,11 @@ Report completion with: what was built, what was verified, what Verification Sce
 - **Then**: Each command exits 0. `pnpm test` runs the existing `src/**/*.test.ts` tests and all pass. `pnpm build` produces `dist/` via the legacy `tsc -p tsconfig.json && vite build` script.
 
 ## Adaptation Log
+
+### 2026-04-19 — Git strategy changed to Full Agentic for slices 2–5
+- **Conflict:** Spec locked Full HITL for all 5 slices. After slice 1 shipped under Full HITL (commit `99a0bfa`), user directed switch to **Full Agentic** for the remainder.
+- **Change:** Git Strategy section now scopes Full HITL to slice 1 only. Slices 2–5 will be authored as separate specs declaring **Full Agentic** — AI commits after every slice that passes gates, no pause for user review between slices. Commit message convention `[slice-N] <imperative>` and direct-on-`main`, no-PR, one-commit-per-slice locks remain in force.
+- **Affects:** All future slices in the monorepo-restructure plan.
 
 ### 2026-04-19 — `packageManager` field added to root `package.json`
 - **Conflict:** Spec rejected adding `packageManager` as scope creep. Reality: turbo 2.9.6 fails with `Could not resolve workspaces. Missing 'packageManager' field in package.json` and refuses to run any task — meaning the spec's "turbo recognizes workspace" verification scenario cannot pass without it.

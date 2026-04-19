@@ -314,5 +314,23 @@ server_app -> web_app [label="defines HttpApi (URL paths + payload shapes via Wi
 - **Source-direct shared consumption**: `packages/shared/exports` points at `.ts` source. Consumers compile shared on import (tsx for Node apps, Vite for web). If a future consumer appears that cannot compile TS on import, shared needs a `build` step and consumer package.json must wait on `^build`. We accept this cost because it collapses the "tsconfig-before-import-flip" intermediate state rival identified as highest-risk.
 - **The standalone MCP fail-fast guard is the only safeguard against schema drift**: If the server adds a column without MCP being updated, MCP keeps reading old shape. This is the same risk as today (no migration framework); the guard only catches "table missing," not "table changed."
 
+## Git Strategy
+
+Project-wide cadence for the monorepo-restructure plan:
+
+- **Slice 1 (workspace-skeleton):** Full HITL — shipped as commit `99a0bfa` on 2026-04-19.
+- **Slices 2–5 (shared-package, server-app, mcp-app, web-app):** **Full Agentic** — AI commits after every slice that passes gates; no pause between slices for user review.
+
+Locked details (apply to all slices):
+- Branch: direct on `main`. No feature branches.
+- PRs: none. Commits land directly on `main`.
+- Commits per slice: exactly one.
+- Tags: none.
+- Commit message: `[slice-N] <imperative summary>`.
+- Verification posture: every slice must pass the Migration Invariants and the spec's Verification Commands before commit.
+
 ## Adaptation Log
-<!-- Empty. Populated when spec interviews or implementation surface conflicts with shared contracts or slice boundaries. -->
+
+### 2026-04-19 — Git strategy switched to Full Agentic for slices 2–5
+- Slice 1 (`workspace-skeleton`) was authored and shipped under Full HITL (commit `99a0bfa`). After that landed, user directed the remaining slices run Full Agentic to remove the inter-slice handoff.
+- Each subsequent spec will declare Full Agentic in its own Git Strategy section. The Migration Invariants gate every commit, so the runnability bar that made HITL safe still holds without the manual pause.
