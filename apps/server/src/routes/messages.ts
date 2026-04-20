@@ -17,11 +17,7 @@ const PostMessageBodySchema = z.object({
 
 const MAX_PAYLOAD_BYTES = 64 * 1024;
 
-export function register(
-  app: Hono,
-  deps: RouteDeps,
-  turnConfig: Omit<TurnConfig, "model">,
-): void {
+export function register(app: Hono, deps: RouteDeps, turnConfig: Omit<TurnConfig, "model">): void {
   const turnDeps: TurnDeps = {
     store: deps.store,
     llm: deps.llm,

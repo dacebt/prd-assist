@@ -16,9 +16,7 @@ export interface McpClient {
   close(): Promise<void>;
 }
 
-export function mcpToolsToOpenAi(
-  tools: readonly McpToolDescriptor[],
-): LlmToolDescriptor[] {
+export function mcpToolsToOpenAi(tools: readonly McpToolDescriptor[]): LlmToolDescriptor[] {
   return tools.map((t) => ({
     type: "function" as const,
     function: {
@@ -56,10 +54,7 @@ export async function createMcpClient(sqlitePath?: string): Promise<McpClient> {
     console.error("mcp_child_exited");
   };
 
-  const client = new Client(
-    { name: "prd-assist-backend", version: "0.1.0" },
-    { capabilities: {} },
-  );
+  const client = new Client({ name: "prd-assist-backend", version: "0.1.0" }, { capabilities: {} });
 
   await client.connect(transport);
 

@@ -1,14 +1,17 @@
 # Monorepo Restructure — Plan
 
 ## Project Status
+
 refactor
 
 ## Intent
+
 Convert the single-package `prd-assist` repo into a Turborepo + pnpm workspaces monorepo with three apps (`server`, `web`, `mcp`) and one shared package, while restructuring the server's flat-route layout into route-group modules with centralized validation, error mapping, and config. No feature work; no library swaps.
 
 ## Scope
 
 ### In Scope
+
 - Promote `src/shared/` to `packages/shared` and add wire-format zod schemas to kill triplication in `src/server/sessions.ts`, `src/mcp/tools.ts`, `src/web/src/api.ts`
 - Move `src/server/` → `apps/server/` with own `package.json`, `tsconfig.json`, `vitest.config.ts`
 - Move `src/mcp/` → `apps/mcp/` with own `package.json` exposing a `bin` entry
@@ -23,6 +26,7 @@ Convert the single-package `prd-assist` repo into a Turborepo + pnpm workspaces 
 - `data/` stays at repo root, path driven by existing `SQLITE_PATH` env var, added to `.gitignore`
 
 ### Out of Scope
+
 - Any HTTP framework swap (Hono stays)
 - Any MCP architectural change (remains a stdio child process spawned by server)
 - Migration framework for SQLite schema (server keeps owning DDL; MCP fails fast on missing table)
@@ -32,6 +36,7 @@ Convert the single-package `prd-assist` repo into a Turborepo + pnpm workspaces 
 - Publishing packages to npm
 
 ## Shared Foundation
+
 - Runtime: Node.js ≥ 20.11
 - Language: TypeScript 5.9.x, strict mode, `exactOptionalPropertyTypes: true`, `noUncheckedIndexedAccess: true`
 - Package manager: pnpm ≥ 9, workspaces via `pnpm-workspace.yaml`
@@ -107,6 +112,7 @@ server_app -> web_app [label="defines HttpApi (URL paths + payload shapes via Wi
 ```
 
 ### DomainTypes
+
 - **Owner**: `shared_package`
 - **Consumers**: `server_app`, `mcp_app`, `web_app`
 - **Shape**: TypeScript type definitions exported from `@prd-assist/shared`:
@@ -123,6 +129,7 @@ server_app -> web_app [label="defines HttpApi (URL paths + payload shapes via Wi
   - Empty `Session.title` is the literal empty string `""`, not `null` or `undefined`
 
 ### WireSchemas
+
 - **Owner**: `shared_package`
 - **Consumers**: `server_app` (request validation, response construction), `web_app` (response validation), `mcp_app` (DB-row parsing — see SqliteSchema for the DB-side variant)
 - **Shape**: Zod schemas exported from `@prd-assist/shared/schemas`:
@@ -134,6 +141,7 @@ server_app -> web_app [label="defines HttpApi (URL paths + payload shapes via Wi
   - `SectionStatusSchema` enum order: `["empty", "draft", "confirmed"]`
 
 ### HttpApi
+
 - **Owner**: `server_app`
 - **Consumers**: `web_app`
 - **Shape**: REST endpoints, payloads validated against `WireSchemas`:
@@ -148,6 +156,7 @@ server_app -> web_app [label="defines HttpApi (URL paths + payload shapes via Wi
   - Vite dev proxy in `apps/web` targets `http://127.0.0.1:5174` (current server port)
 
 ### McpLaunchProtocol
+
 - **Owner**: `server_app`
 - **Consumers**: `mcp_app`
 - **Shape**: Server spawns MCP via stdio using these env vars (replaces `process.cwd()`-anchored hardcoded paths in `src/server/mcpClient.ts:32-33`):
@@ -160,6 +169,7 @@ server_app -> web_app [label="defines HttpApi (URL paths + payload shapes via Wi
   - Server's `transport.onclose` handler does NOT call `process.exit(1)` (current behavior at `src/server/mcpClient.ts:46-49` is incompatible with `node --watch` restart cycles) — it logs and lets the SIGTERM-driven shutdown path handle exit
 
 ### SqliteSchema
+
 - **Owner**: `server_app`
 - **Consumers**: `mcp_app`
 - **Shape**: Single `sessions` table (preserved from `src/server/db.ts:8-18`):
@@ -182,6 +192,7 @@ server_app -> web_app [label="defines HttpApi (URL paths + payload shapes via Wi
 ## Slice Manifest
 
 ### workspace-skeleton
+
 - Domain: Add monorepo plumbing without touching a line of application source. Creates `pnpm-workspace.yaml` (`apps/*`, `packages/*`), `turbo.json` (task definitions for `dev`, `build`, `typecheck`, `test`, `lint` — initially with empty or minimal task configs since no workspace packages exist yet), `tsconfig.base.json` (no `moduleResolution` set — per-package tsconfigs override), `.nvmrc` (pins Node 20.11+). Adds `turbo` to root `devDependencies`. Updates root `.gitignore` to include `data/`, `.turbo/`, `apps/*/dist`, `packages/*/dist` (`node_modules`, `dist` already present).
 - Boundary: Root `package.json` `dependencies`, `devDependencies` (minus the turbo addition), `scripts`, and `pnpm.onlyBuiltDependencies` are UNCHANGED. NO app deps stripped from root, NO legacy scripts removed, NO existing config files deleted. Existing `src/` tree continues to run via unchanged legacy `pnpm dev`, `pnpm build`, `pnpm test`, `pnpm typecheck`. NO directories created under `apps/` or `packages/`.
 - Dependencies: none
@@ -192,6 +203,7 @@ server_app -> web_app [label="defines HttpApi (URL paths + payload shapes via Wi
 - Spec path: `.docs/planning/specs/2026-04-18-monorepo-restructure-workspace-skeleton.spec.md`
 
 ### shared-package
+
 - Domain: Create `packages/shared/{package.json, tsconfig.json, src/}`. Move `src/shared/types.ts` and `src/shared/sections.ts` into `packages/shared/src/`. Add `packages/shared/src/schemas.ts` containing the WireSchemas (`SectionSchema`, `SectionStatusSchema`, `SectionKeySchema`, `PrdSchema`, `ChatMessageSchema`, `SessionSchema`, `SessionSummarySchema`, `SessionListSchema`) — exact shapes drawn from current duplicated definitions in `src/server/sessions.ts:6-27`, `src/mcp/tools.ts:13-27`, `src/web/src/api.ts:4-43`. `package.json` `exports` field:
   ```json
   "exports": {
@@ -210,6 +222,7 @@ server_app -> web_app [label="defines HttpApi (URL paths + payload shapes via Wi
 - Spec path: `.docs/planning/specs/2026-04-18-monorepo-restructure-shared-package.spec.md`
 
 ### server-app
+
 - Domain: `apps/server/{package.json, tsconfig.json, vitest.config.ts, src/}`. Move `src/server/*` into `apps/server/src/`. Atomic with the move:
   - Flip imports from `../shared/...` to `@prd-assist/shared` (types) and `@prd-assist/shared/schemas` (zod)
   - Remove duplicated zod schemas from `apps/server/src/sessions.ts` (keep `SessionRowSchema` and `MessagesSchema` — those are persistence concerns, not wire concerns)
@@ -230,11 +243,12 @@ server_app -> web_app [label="defines HttpApi (URL paths + payload shapes via Wi
   - SIGTERM handler force-kill timeout: specify milliseconds (recommend 3000ms based on `StdioClientTransport.close()`'s SIGTERM→SIGKILL escalation already being internal to the MCP SDK — server's handler only needs to prevent the shutdown from hanging indefinitely if `mcp.close()` itself throws).
   - Routes split layout: each route group's request schemas live INLINE in its own file under `apps/server/src/routes/` (fewer files, colocation with handler). WireSchemas from `@prd-assist/shared/schemas` are used for response validation only. Request body/param schemas are server-local since they're transport concerns (e.g., `PostMessageBodySchema`'s trim/length rules).
   - `withValidation` middleware typing: typed Hono `c.get("validated")` with a per-route context variable. Spec locks the exact Hono context extension pattern.
-  - Existing `console.log(\`turn ${sessionId.slice(0, 8)}...\`)` observability at `src/server/turn.ts:211-213` stays unchanged — observability is out of scope for this restructure.
+  - Existing `console.log(\`turn ${sessionId.slice(0, 8)}...\`)`observability at`src/server/turn.ts:211-213` stays unchanged — observability is out of scope for this restructure.
   - Where does the `apps/server` `dev` script get its `MCP_LEGACY_ROOT` env value? Options: hardcoded in `apps/server/package.json`'s `dev` script, or set at the root `scripts.dev` orchestrator level. Spec must pick one and justify.
 - Spec path: `.docs/planning/specs/2026-04-18-monorepo-restructure-server-app.spec.md`
 
 ### mcp-app
+
 - Domain: `apps/mcp/{package.json, tsconfig.json, vitest.config.ts, src/}`. Move `src/mcp/*` into `apps/mcp/src/`. Atomic with the move:
   - Flip imports from `../shared/...` to `@prd-assist/shared`
   - Remove duplicated zod schemas in `apps/mcp/src/tools.ts` (keep `PrdRowSchema` — persistence concern)
@@ -254,6 +268,7 @@ server_app -> web_app [label="defines HttpApi (URL paths + payload shapes via Wi
 - Spec path: `.docs/planning/specs/2026-04-18-monorepo-restructure-mcp-app.spec.md`
 
 ### web-app
+
 - Domain: `apps/web/{package.json, tsconfig.json, vite.config.ts, postcss.config.js, tailwind.config.js, index.html, src/}`. Move `src/web/*` into `apps/web/src/` (the `src/web/index.html` and existing `src/web/src/` collapse: `apps/web/index.html` at app root, `apps/web/src/` for TS/TSX). Atomic with the move:
   - Flip imports from `../../shared/...` to `@prd-assist/shared` (types) and `@prd-assist/shared/schemas` (zod)
   - Remove duplicated zod schemas in `apps/web/src/api.ts` (use `SessionSchema`, `SessionListSchema`, `SessionSummarySchema` from shared)
@@ -273,31 +288,37 @@ server_app -> web_app [label="defines HttpApi (URL paths + payload shapes via Wi
 ## Cross-System Verification Scenarios
 
 ### Scenario: full PRD-update turn end-to-end under turbo dev
+
 - **Given**: All five slices shipped. Repo root has run `pnpm install` and `turbo build`. `turbo dev` is running and stable; web is reachable, server is reachable, MCP child has been spawned by server.
 - **When**: A user opens a session in the web UI and posts a message that requires the LLM to call `update_section` on the MCP server (e.g., "set the vision to X").
 - **Then**: The web client receives a 200 response with the assistant reply text. `GET /api/sessions/:id` returns a `Session` whose `prd.vision` reflects the updated content with `status: "draft"` and a fresh `updatedAt`. No errors in any of the three `turbo dev` log streams. The `Session` round-trips through `SessionSchema` validation in the web client.
 
 ### Scenario: dev restart preserves MCP integrity
+
 - **Given**: All five slices shipped. `turbo dev` is running. A session has been created and contains at least one message.
 - **When**: A developer edits `apps/server/src/turn.ts`, triggering `node --watch` to SIGTERM the server process. The new server process starts.
 - **Then**: The old MCP child process exits cleanly (no orphaned process visible in `ps` after 2 seconds). The new server spawns a fresh MCP child. The next message posted to the existing session succeeds. The SQLite WAL has no second writer at any point during the restart window. The server's `transport.onclose` handler logs the disconnection but does NOT call `process.exit`.
 
 ### Scenario: MCP cannot start without server-initialized schema
+
 - **Given**: All five slices shipped. A fresh sqlite path with no `sessions` table.
 - **When**: A developer (or accidental misconfiguration) launches `apps/mcp` directly without first running `apps/server`.
 - **Then**: The MCP process writes a structured JSON error to stderr (`{ "error": "schema_not_initialized", "hint": "start apps/server first" }`) and exits with code 2 within 1 second. No tool calls succeed silently against an empty DB.
 
 ### Scenario: dev environment survives every slice boundary
+
 - **Given**: A clean checkout of any intermediate state — after slice 1, after slice 2, after slice 3, after slice 4, or after slice 5 (all five combinations).
 - **When**: A developer runs `pnpm install` followed by `pnpm dev` from the repo root.
 - **Then**: Within 10 seconds the web UI is reachable at its current dev URL, the server responds 200 on `GET /api/health`, and a fresh session can be created via `POST /api/sessions`. No orphaned MCP child process exists after `Ctrl-C`. `pnpm build`, `pnpm test`, and `pnpm typecheck` also succeed at the same checkout. This scenario is non-negotiable — a slice that breaks it is not complete, regardless of any other verification result.
 
 ### Scenario: shared schema divergence cannot persist
+
 - **Given**: All five slices shipped.
 - **When**: A developer adds a new field to `Section` in `packages/shared/src/types.ts` and `SectionSchema` in `packages/shared/src/schemas.ts`, then runs `turbo typecheck`.
 - **Then**: All three apps either compile against the new shape or fail typecheck pointing at the specific consumer site. No app silently parses old-shape JSON because it kept its own zod schema — there is exactly one `SectionSchema` and it lives in shared.
 
 ## Rejected Alternatives
+
 - **NestJS framework swap**: Rejected. Set-based analysis (plan-mode) showed every assertion in `routes.test.ts` would require rewriting (Hono's `app.fetch(new Request(...))` interface has no NestJS equivalent), with no benefit at this scale (8 routes, LAN-only, manual DI in `turn.ts` already works). User confirmed this is a file-organization perception, not a library mismatch.
 - **Fastify framework swap**: Rejected for the same test-rewrite cost as NestJS without NestJS's stronger DI signal. Considered as the secondary option if "framework" was a hard requirement; user confirmed it was not.
 - **MCP collapsed into a packages/mcp-tools library**: Rejected by user directive — MCP must remain a separate process to preserve the stdio transport contract.
@@ -306,6 +327,7 @@ server_app -> web_app [label="defines HttpApi (URL paths + payload shapes via Wi
 - **Schema migration to packages/shared as a "migrations" module**: Rejected for this restructure. Server keeps DDL; MCP fails fast. A future feature can promote DDL to shared if standalone-MCP becomes a real use case.
 
 ## Accepted Risks
+
 - **Brief WAL race window during dev SIGTERM cycle**: If the server's SIGTERM handler throws or stalls before `mcp.close()` completes, the old MCP child can briefly coexist with a new one before being killed. Mitigated by the explicit handler + a force-kill timeout (spec'd in server-app slice). Production-irrelevant; dev-only.
 - **`tsx/esm` short-form may differ from current full `--require tsx/dist/preflight.cjs --import tsx/dist/loader.mjs`**: The full form registers a CJS interop hook the short form omits. Better-sqlite3 works under both; rare CJS-only deps may behave differently. Spec for server-app must verify the loader form against the actual dep tree before locking it.
 - **Turbo cache poisoning on `better-sqlite3` ABI**: Native binary is Node-ABI specific and not in any source-tree input. Mitigated by `cache: false` on the `test` task in `turbo.json`. Loses test caching, accepted as the cost of correctness.
@@ -323,6 +345,7 @@ Project-wide cadence for the monorepo-restructure plan:
 - **Slices 2–5 (shared-package, server-app, mcp-app, web-app):** **Full Agentic** — AI commits after every slice that passes gates; no pause between slices for user review.
 
 Locked details (apply to all slices):
+
 - Branch: direct on `main`. No feature branches.
 - PRs: none. Commits land directly on `main`.
 - Commits per slice: exactly one.
@@ -333,11 +356,13 @@ Locked details (apply to all slices):
 ## Adaptation Log
 
 ### 2026-04-19 — Module resolution switched to `bundler` for all packages
+
 - **Conflict:** Plan locked `nodenext` for server/mcp tsconfigs. Reality: `nodenext` requires `.js` suffix on every relative import (because TS does not rewrite paths and Node's ESM loader would, hypothetically, consume the suffixed paths). User strongly objects to seeing `.js` in `.ts` source.
 - **Why bundler is fine:** `tsx` runs server/mcp source directly in dev; Vite handles web; `tsc --noEmit` is the only TS invocation. No compiled `.js` is ever produced for Node's native loader to resolve. The `nodenext` choice was paying syntactic cost for a runtime behavior that does not exist in this project.
 - **Change:** Shared Foundation now locks `moduleResolution: "bundler"`, `module: "ES2022"` for every package. Slices 3–5 will declare those values in their per-app tsconfigs. Slice 2 implementation already adopted this; the spec's Requirements section was superseded in-flight.
 - **Affects:** Slice 2 (already shipped under this rule), slices 3–5 (future).
 
 ### 2026-04-19 — Git strategy switched to Full Agentic for slices 2–5
+
 - Slice 1 (`workspace-skeleton`) was authored and shipped under Full HITL (commit `99a0bfa`). After that landed, user directed the remaining slices run Full Agentic to remove the inter-slice handoff.
 - Each subsequent spec will declare Full Agentic in its own Git Strategy section. The Migration Invariants gate every commit, so the runnability bar that made HITL safe still holds without the manual pause.

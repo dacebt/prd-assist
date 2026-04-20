@@ -41,15 +41,15 @@ describe("TOOLS_MANIFEST", () => {
 
   it("update_section inputSchema.properties.key enum contains all seven section keys in declared order", () => {
     const tool = TOOLS_MANIFEST.find((t) => t.name === "update_section");
-    const keyProp = (tool?.inputSchema as { properties: { key: { enum: string[] } } })
-      .properties.key;
+    const keyProp = (tool?.inputSchema as { properties: { key: { enum: string[] } } }).properties
+      .key;
     expect(keyProp.enum).toEqual(EXPECTED_SECTION_KEYS);
   });
 
   it("mark_confirmed inputSchema.properties.key enum contains all seven section keys in declared order", () => {
     const tool = TOOLS_MANIFEST.find((t) => t.name === "mark_confirmed");
-    const keyProp = (tool?.inputSchema as { properties: { key: { enum: string[] } } })
-      .properties.key;
+    const keyProp = (tool?.inputSchema as { properties: { key: { enum: string[] } } }).properties
+      .key;
     expect(keyProp.enum).toEqual(EXPECTED_SECTION_KEYS);
   });
 });

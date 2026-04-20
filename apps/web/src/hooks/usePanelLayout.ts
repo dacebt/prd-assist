@@ -65,10 +65,8 @@ export function usePanelLayout(): PanelLayout {
     sidebarWidth: layout.sidebarWidth,
     chatWidth: layout.chatWidth,
     prdOpen: layout.prdOpen,
-    setSidebarWidth: (n) =>
-      setLayout((prev) => ({ ...prev, sidebarWidth: clamp(n, SIDEBAR_MIN) })),
-    setChatWidth: (n) =>
-      setLayout((prev) => ({ ...prev, chatWidth: clamp(n, CHAT_MIN) })),
+    setSidebarWidth: (n) => setLayout((prev) => ({ ...prev, sidebarWidth: clamp(n, SIDEBAR_MIN) })),
+    setChatWidth: (n) => setLayout((prev) => ({ ...prev, chatWidth: clamp(n, CHAT_MIN) })),
     togglePrd: () => setLayout((prev) => ({ ...prev, prdOpen: !prev.prdOpen })),
   };
 }

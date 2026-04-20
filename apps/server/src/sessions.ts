@@ -105,11 +105,7 @@ export function createSessionStore(db: Database.Database): SessionStore {
     },
 
     persistAssistantMessage(session: Session): void {
-      persistAssistantStmt.run(
-        JSON.stringify(session.messages),
-        session.updatedAt,
-        session.id,
-      );
+      persistAssistantStmt.run(JSON.stringify(session.messages), session.updatedAt, session.id);
     },
   };
 }

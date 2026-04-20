@@ -36,10 +36,8 @@ export class SessionNotFoundError extends Error {
 
 const ITERATION_CAP_MESSAGE =
   "I hit a tool-call loop limit. Please rephrase your request or try a smaller step.";
-const PER_CALL_TIMEOUT_MESSAGE =
-  "The model took too long to respond. Please try again.";
-const WALL_CLOCK_MESSAGE =
-  "I ran out of time on that turn. Please try again.";
+const PER_CALL_TIMEOUT_MESSAGE = "The model took too long to respond. Please try again.";
+const WALL_CLOCK_MESSAGE = "I ran out of time on that turn. Please try again.";
 const UNEXPECTED_ERROR_MESSAGE =
   "Something went wrong while processing that turn. See server logs for details.";
 
@@ -88,8 +86,7 @@ export async function handleTurn(opts: {
     const mcpTools = await mcp.listTools();
     const tools = mcpToolsToOpenAi(mcpTools);
 
-    const systemContent =
-      `${buildSystemPrompt()}\n\nThe session_id for every MCP tool call in this session is: ${sessionId}`;
+    const systemContent = `${buildSystemPrompt()}\n\nThe session_id for every MCP tool call in this session is: ${sessionId}`;
     const workingMessages: WorkingMessage[] = [
       { role: "system", content: systemContent },
       ...session.messages,
@@ -127,7 +124,11 @@ export async function handleTurn(opts: {
         break loop;
       }
 
-      workingMessages.push({ role: "assistant", content: reply.content, tool_calls: reply.tool_calls });
+      workingMessages.push({
+        role: "assistant",
+        content: reply.content,
+        tool_calls: reply.tool_calls,
+      });
 
       if (reply.tool_calls !== undefined && reply.tool_calls.length > 0) {
         for (const call of reply.tool_calls) {

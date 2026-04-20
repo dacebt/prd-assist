@@ -62,9 +62,7 @@ export default function ChatPane({ session, inFlight, onBeforeSend, onAfterSend 
       </div>
 
       <div className="border-t border-gray-200 p-3 dark:border-gray-800">
-        {error !== null && (
-          <p className="text-red-500 dark:text-red-400 text-xs mb-2">{error}</p>
-        )}
+        {error !== null && <p className="text-red-500 dark:text-red-400 text-xs mb-2">{error}</p>}
         <textarea
           className="w-full border border-gray-300 rounded p-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
           rows={3}

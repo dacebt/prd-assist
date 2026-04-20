@@ -44,7 +44,7 @@ type Session = {
   id: string;
   createdAt: string;
   updatedAt: string;
-  title: string;             // derived from first user message
+  title: string; // derived from first user message
   messages: ChatMessage[];
   prd: PRD;
 };
@@ -64,7 +64,7 @@ type PRD = {
 };
 
 type Section = {
-  content: string;   // markdown
+  content: string; // markdown
   updatedAt: string;
   status: "empty" | "draft" | "confirmed";
 };
@@ -112,7 +112,7 @@ async function handleTurn(sessionId: string, userText: string): Promise<string> 
         const out = await mcp.callTool(call.function.name, JSON.parse(call.function.arguments));
         history.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(out) });
       }
-      continue;  // let the LLM react to tool results
+      continue; // let the LLM react to tool results
     }
 
     session.messages.push({ role: "assistant", content: msg.content, at: now() });
@@ -132,7 +132,7 @@ This is the section the prototype didn't have — and the reason it went off the
 
 ### 6.1 The model: supervisor + callable specialists
 
-- **Supervisor** — the one LLM in the turn loop above. Talks to the user. Decides what needs doing next. The *only* agent the user converses with.
+- **Supervisor** — the one LLM in the turn loop above. Talks to the user. Decides what needs doing next. The _only_ agent the user converses with.
 - **Specialists** — LLM-backed functions the supervisor can call as tools. Examples you'll add later: `critique_section`, `prioritize_features`, `suggest_open_questions`, `research_topic`.
 - **Tools** — deterministic functions (the four MCP tools above, plus any pure utilities).
 
@@ -195,13 +195,13 @@ The third category is the trap. Don't build it until you have a specific, concre
 
 ### 6.6 Failure modes to watch for (and how the model prevents them)
 
-| Prototype failure | v2 prevention |
-|---|---|
-| Agents reacting to each other's lifecycle events → infinite amplification | No lifecycle events exist. Specialists are function calls with a return value. |
-| Watchdog timing out stuck agents | Specialist calls are awaited with a timeout at the call site. Timeout = that tool call fails. Supervisor handles it in its next thought. |
-| Per-turn dedup, consumer groups, ack/nack | No event stream to dedup over. Each turn is a function call. |
-| Critic and planner ping-ponging disagreements | The supervisor decides how many critique rounds to run. If it wants a second pass, it calls `critique_section` again. Explicit, bounded, visible in the trace. |
-| Narrator agent over-firing | Narration is the supervisor's own reply. There's no separate narrator. |
+| Prototype failure                                                         | v2 prevention                                                                                                                                                  |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Agents reacting to each other's lifecycle events → infinite amplification | No lifecycle events exist. Specialists are function calls with a return value.                                                                                 |
+| Watchdog timing out stuck agents                                          | Specialist calls are awaited with a timeout at the call site. Timeout = that tool call fails. Supervisor handles it in its next thought.                       |
+| Per-turn dedup, consumer groups, ack/nack                                 | No event stream to dedup over. Each turn is a function call.                                                                                                   |
+| Critic and planner ping-ponging disagreements                             | The supervisor decides how many critique rounds to run. If it wants a second pass, it calls `critique_section` again. Explicit, bounded, visible in the trace. |
+| Narrator agent over-firing                                                | Narration is the supervisor's own reply. There's no separate narrator.                                                                                         |
 
 ---
 

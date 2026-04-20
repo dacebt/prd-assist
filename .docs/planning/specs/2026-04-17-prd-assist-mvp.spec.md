@@ -1,14 +1,17 @@
 # prd-assist MVP
 
 ## Project Status
+
 greenfield
 
 ## Intent
+
 A chat-driven PRD builder. One supervisor LLM in a turn loop talks to the user, calls four deterministic MCP tools to read and write a seven-section PRD stored in SQLite, and the user watches the PRD update live in a pane beside the chat. This MVP replaces a prior reactive multi-agent prototype whose coordination model proved unmanageable. The system here has no specialists, no event bus, and no lifecycle — every agent capability is added later as an in-process tool call against this foundation.
 
 ## Scope
 
 ### In Scope
+
 - Node backend (Hono, TypeScript) serving HTTP to the browser and hosting the turn loop.
 - MCP server (Node, `@modelcontextprotocol/sdk`, stdio transport) exposing four PRD tools.
 - SQLite persistence (`better-sqlite3`, WAL mode, single file) holding sessions.
@@ -26,6 +29,7 @@ A chat-driven PRD builder. One supervisor LLM in a turn loop talks to the user, 
 - Slice-3 tool-calling smoke check proving the configured model emits native OpenAI `tool_calls` through LM Studio before slice 4 is built.
 
 ### Out of Scope
+
 - SSE, WebSocket, or token-level streaming (deferred; brief v1.1).
 - User-driven direct section editing in the PRD pane (deferred; brief v1.2).
 - Any specialist (LLM-backed sub-tool). MVP has supervisor only.
@@ -49,6 +53,7 @@ A chat-driven PRD builder. One supervisor LLM in a turn loop talks to the user, 
 ## Implementation Constraints
 
 ### Architecture
+
 Three processes, one persistence layer.
 
 ```digraph
@@ -62,6 +67,7 @@ hono_backend -> lm_studio [label="OpenAI-compatible HTTP"]
 Dependencies flow inward from the frontend. The React app owns no persistence state; everything is fetched from the backend. The Hono backend owns the turn loop, the LM Studio client, the MCP client, and writes to `messages_json`, `title`, and `updated_at`. The MCP server owns reads and writes of `prd_json`. SQLite is shared via two separate `better-sqlite3` connections on the same file in WAL mode.
 
 **Single pnpm package at the repo root.** Three entry points:
+
 - `src/web/` — Vite-managed React app built as static assets, served in development by the Vite dev server on `http://localhost:5173`.
 - `src/server/index.ts` — Hono backend binary. Listens on `127.0.0.1:5174`. Spawns the MCP server as a child process at boot.
 - `src/mcp/index.ts` — MCP server binary. Communicates with the backend over stdio via `@modelcontextprotocol/sdk`.
@@ -143,6 +149,7 @@ wall_clock_cap_hit -> append_system_error -> persist_assistant_msg -> release_mu
 The user message is persisted before the LLM loop starts. Any mid-loop failure still leaves the user's input on disk. The loop is bounded: max 6 iterations, per `llm.chat` call timeout 90 seconds via `AbortSignal`, total turn wall-clock 300 seconds. Iteration or wall-clock breach appends a system-error assistant message, persists, releases the mutex, and returns HTTP 200 with that content.
 
 ### Boundaries
+
 - **HTTP request bodies (browser → backend).** Parsed with `zod` schemas at the route boundary. Reject malformed with HTTP 400 `{"error": "invalid_request", "details": <zod_issues>}`. No silent coercion. Maximum raw body size 64 KB; larger returns HTTP 413.
 - **User message text.** `text` must be a string, trimmed length ≥ 1 and ≤ 10000 characters. Violations return HTTP 400 with `{"error": "invalid_request", "details": ...}`.
 - **LLM tool-call arguments (Gemma → backend).** Every tool-call handling step is wrapped in try/catch that returns a structured tool-role message to the loop. Four categories, all handled identically at the loop level:
@@ -150,16 +157,18 @@ The user message is persisted before the LLM loop starts. Any mid-loop failure s
   - Unknown tool name (`call.function.name` not in the MCP `listTools` result) → `{"error": "unknown_tool", "name": <name>, "valid_tools": [...]}`.
   - Tool argument validator rejection (reported by MCP server) → passed through verbatim as the tool result.
   - MCP transport or server-side exception → `{"error": "tool_invocation_failed", "name": <name>, "message": <e.message>}`.
-  In every case the loop continues with the structured tool result appended; the supervisor recovers in its next iteration.
+    In every case the loop continues with the structured tool result appended; the supervisor recovers in its next iteration.
 - **MCP tool arguments (backend → MCP server).** Validated at the MCP server entry. `key` validated against the literal union `"vision" | "problem" | "targetUsers" | "goals" | "coreFeatures" | "outOfScope" | "openQuestions"`. `content` validated as string with length ≤ 10000 characters. `status` validated against the literal union `"empty" | "draft" | "confirmed"`. Violations return structured error results, never throw.
 - **LM Studio responses.** Treated as untrusted. `choices[0].message` presence checked; missing fields produce an `invalid_llm_response` structured error that the loop treats as a soft failure (appends system-error assistant message and returns).
 - **SQLite reads.** Storage is trusted; rows are parsed via `zod` into the canonical shape. A parse failure is a 500-class server error with the session id logged. This only triggers if the DB was hand-edited to an invalid shape.
 - **Session ownership.** Per-session write mutex lives in-process in the backend as `Map<sessionId, Promise<void>>`. A second concurrent `POST /api/sessions/:id/messages` for the same session id returns HTTP 409 `{"error": "session_busy"}` within 100ms without waiting on the in-flight turn.
 
 ### Testing Approach
+
 Vitest for pure-function units and for the turn loop under stubbed clients. Typecheck and lint carry the weight for route wiring, React components, and MCP glue.
 
 What gets tested:
+
 - Session title derivation over edge cases (empty, whitespace-only rejected upstream, multi-word, punctuation, 60-char boundary, 300-char input).
 - Tool argument validators in `src/mcp/validate.ts`.
 - `buildSystemPrompt` output contains every verbatim rule sentence defined in this spec.
@@ -167,11 +176,13 @@ What gets tested:
 - Per-session mutex acquire / release / contend.
 
 What does not get tested:
+
 - Hono route registration, Vite config, MCP SDK wiring, Tailwind compilation.
 - React components whose behavior is expressed entirely in JSX and class names.
 - The real LLM's behavior. Model correctness is verified by the scripted harness in slice 4 and by the Verification Scenarios, not by Vitest.
 
 ### Naming
+
 - **Section keys.** TypeScript literal union `SectionKey = "vision" | "problem" | "targetUsers" | "goals" | "coreFeatures" | "outOfScope" | "openQuestions"`. Used verbatim in storage, HTTP, MCP tool arguments, React props, and JSON. No alternate serializations.
 - **Section status.** `SectionStatus = "empty" | "draft" | "confirmed"`.
 - **MCP tool names.** snake_case: `get_prd`, `update_section`, `list_empty_sections`, `mark_confirmed`.
@@ -187,26 +198,31 @@ What does not get tested:
 
 ```ts
 type SectionKey =
-  | "vision" | "problem" | "targetUsers" | "goals"
-  | "coreFeatures" | "outOfScope" | "openQuestions";
+  | "vision"
+  | "problem"
+  | "targetUsers"
+  | "goals"
+  | "coreFeatures"
+  | "outOfScope"
+  | "openQuestions";
 
 type SectionStatus = "empty" | "draft" | "confirmed";
 
 type Section = {
-  content: string;      // markdown; length ≤ 10000
-  updatedAt: string;    // ISO 8601 via new Date().toISOString()
+  content: string; // markdown; length ≤ 10000
+  updatedAt: string; // ISO 8601 via new Date().toISOString()
   status: SectionStatus;
 };
 
 type PRD = Record<SectionKey, Section>;
 
-type ChatMessageUser      = { role: "user";      content: string; at: string };
+type ChatMessageUser = { role: "user"; content: string; at: string };
 type ChatMessageAssistant = { role: "assistant"; content: string; at: string };
-type ChatMessage          = ChatMessageUser | ChatMessageAssistant;
+type ChatMessage = ChatMessageUser | ChatMessageAssistant;
 
 type Session = {
-  id: string;           // crypto.randomUUID()
-  title: string;        // truncated first user message; empty before first message
+  id: string; // crypto.randomUUID()
+  title: string; // truncated first user message; empty before first message
   createdAt: string;
   updatedAt: string;
   messages: ChatMessage[];
@@ -235,6 +251,7 @@ POST /api/sessions/:id/messages  body: { text }       -> { reply: string }
 `POST /api/sessions` creates a session with the initial state above; no request body required. Returns `201` with `{ id }`.
 
 `POST /api/sessions/:id/messages` runs one full turn synchronously and returns the final assistant reply. Average turn latency on local hardware is 30–120 seconds; clients block until resolution. Returns:
+
 - `400` on malformed body (missing `text`, empty after trim, over 10000 chars).
 - `404` if the session does not exist.
 - `409` if a turn for that session is already in flight.
@@ -259,43 +276,78 @@ Both success and error results are serialized into `content[0].text` as JSON. `i
 **Tool manifest.** Each tool registers with a `name`, `description`, and `inputSchema` (JSON Schema). The descriptions below are the verbatim strings — Vitest asserts the registered descriptions match byte-for-byte.
 
 **`get_prd`**
+
 - **description:** `"Read the full PRD with all seven sections, their current content, status, and last-updated timestamp. Call this as the first tool call of every turn so you have fresh content before deciding what to do."`
 - **inputSchema:**
   ```json
-  { "type": "object",
+  {
+    "type": "object",
     "properties": { "session_id": { "type": "string" } },
-    "required": ["session_id"], "additionalProperties": false }
+    "required": ["session_id"],
+    "additionalProperties": false
+  }
   ```
 
 **`update_section`**
+
 - **description:** `"Write new content to one PRD section. Preserve existing content verbatim unless the user has explicitly asked in this turn to change or remove specific parts. Set user_requested_revision=true only when the user has explicitly asked in this turn to revise a section whose status is already confirmed. Unknown section keys are rejected."`
 - **inputSchema:**
   ```json
-  { "type": "object",
+  {
+    "type": "object",
     "properties": {
       "session_id": { "type": "string" },
-      "key": { "type": "string", "enum": ["vision","problem","targetUsers","goals","coreFeatures","outOfScope","openQuestions"] },
+      "key": {
+        "type": "string",
+        "enum": [
+          "vision",
+          "problem",
+          "targetUsers",
+          "goals",
+          "coreFeatures",
+          "outOfScope",
+          "openQuestions"
+        ]
+      },
       "content": { "type": "string", "maxLength": 10000 },
-      "status": { "type": "string", "enum": ["empty","draft","confirmed"] },
+      "status": { "type": "string", "enum": ["empty", "draft", "confirmed"] },
       "user_requested_revision": { "type": "boolean" }
     },
-    "required": ["session_id","key","content"], "additionalProperties": false }
+    "required": ["session_id", "key", "content"],
+    "additionalProperties": false
+  }
   ```
 
 **`list_empty_sections`**
+
 - **description:** `"Return the keys of sections whose status is empty. Use this to decide which sections still need user input."`
 - **inputSchema:** same shape as `get_prd`.
 
 **`mark_confirmed`**
+
 - **description:** `"Mark a section as confirmed after the user has reviewed its content in this conversation and has explicitly agreed it is complete. Do not call this on a section whose content is empty. Do not call this without explicit user confirmation in the current turn."`
 - **inputSchema:**
   ```json
-  { "type": "object",
+  {
+    "type": "object",
     "properties": {
       "session_id": { "type": "string" },
-      "key": { "type": "string", "enum": ["vision","problem","targetUsers","goals","coreFeatures","outOfScope","openQuestions"] }
+      "key": {
+        "type": "string",
+        "enum": [
+          "vision",
+          "problem",
+          "targetUsers",
+          "goals",
+          "coreFeatures",
+          "outOfScope",
+          "openQuestions"
+        ]
+      }
     },
-    "required": ["session_id","key"], "additionalProperties": false }
+    "required": ["session_id", "key"],
+    "additionalProperties": false
+  }
   ```
 
 The `key` enum in each `inputSchema` is the structural guardrail that prevents the model from inventing section keys — the openai-compatible layer propagates the enum constraint into the function-calling format.
@@ -304,6 +356,7 @@ The `key` enum in each `inputSchema` is the structural guardrail that prevents t
 Reads `prd_json` from the session row via a dedicated MCP-owned SQLite connection. Returns the full seven-section object. No side effects. Missing `session_id` → `{"error": "session_not_found", "session_id": <id>}`.
 
 **`update_section(session_id, key, content, status?, user_requested_revision?)` → `Section`**
+
 - `key: SectionKey` — validated against the literal union. Unknown key returns `{"error": "unknown_section_key", "valid_keys": [...]}`.
 - `content: string` — markdown; must be a string with length ≤ 10000. Longer returns `{"error": "content_too_long", "max": 10000, "got": <n>}`.
 - `status?: SectionStatus` — if provided, validates against the literal union and sets the section's status. If omitted:
@@ -317,6 +370,7 @@ The tool reads the row, mutates the target section in the `PRD` object, writes b
 Returns the keys of sections whose `status === "empty"`, in the declaration order of the `SectionKey` union. Missing session → `{"error": "session_not_found", ...}`.
 
 **`mark_confirmed(session_id, key)` → `Section`**
+
 - Validates `key` as `SectionKey`.
 - Reads the section; if `content.trim().length === 0`, returns `{"error": "cannot_confirm_empty_section", "key": <key>}` without writing.
 - Sets `section.status = "confirmed"` and `section.updatedAt = now`. Returns the updated section. No-op-equivalent if already confirmed (same write, same return).
@@ -335,16 +389,16 @@ export async function handleTurn(opts: {
 }): Promise<string>;
 
 export type TurnDeps = {
-  db: SessionStore;          // loadSession / persistUserMessage / persistAssistantMessage / deriveTitle
-  llm: LlmClient;            // chat({model, messages, tools, signal}) -> AssistantMessage
-  mcp: McpClient;            // listTools(), callTool(name, args)
-  mutex: SessionMutex;       // acquire(sessionId) / release(sessionId); sync 409 contention
-  now: () => Date;           // test injection
+  db: SessionStore; // loadSession / persistUserMessage / persistAssistantMessage / deriveTitle
+  llm: LlmClient; // chat({model, messages, tools, signal}) -> AssistantMessage
+  mcp: McpClient; // listTools(), callTool(name, args)
+  mutex: SessionMutex; // acquire(sessionId) / release(sessionId); sync 409 contention
+  now: () => Date; // test injection
   config: {
     model: string;
-    maxIterations: number;   // 6
+    maxIterations: number; // 6
     perCallTimeoutMs: number; // 90_000
-    wallClockMs: number;      // 300_000
+    wallClockMs: number; // 300_000
   };
 };
 ```
@@ -352,16 +406,17 @@ export type TurnDeps = {
 Production assembly lives in `src/server/index.ts`; `turn.ts` itself has no I/O imports.
 
 Loop behavior:
+
 1. Validate `userText` upstream at the route; `handleTurn` assumes non-empty trimmed input.
 2. Attempt `mutex.acquire(sessionId)`. If already held, throw a typed `SessionBusyError` that the route maps to 409. The acquisition must be synchronous so the 409 response returns without waiting.
 3. Try: load session; push the user message; if `session.title === ""` derive from this message; persist `messages_json` and `title` in a single `UPDATE` before any LLM call.
 4. Build the LLM message array: `[{ role: "system", content: buildSystemPrompt() }, ...session.messages]`. No tool-role messages carry over between turns.
 5. Build the LLM tools parameter from the `McpClient` adapter's cached tool list by mapping each MCP tool descriptor to the OpenAI function-calling shape:
    ```ts
-   tools.map(t => ({
+   tools.map((t) => ({
      type: "function" as const,
      function: { name: t.name, description: t.description, parameters: t.inputSchema },
-   }))
+   }));
    ```
    The MCP `inputSchema` field is passed verbatim as `parameters` — both are JSON Schema. This conversion happens once at boot when the tool list is cached, not on every turn.
 6. Enter the loop. Start the wall-clock timer. Each iteration:
@@ -369,12 +424,12 @@ Loop behavior:
    b. Call `llm.chat({ model, messages, tools, signal })`. On abort, break out with system-error path.
    c. Append the assistant message to the working array.
    d. If `message.tool_calls` is present and non-empty: for each call, in order:
-      - Try to parse `call.function.arguments` as JSON. On failure, append tool-error message.
-      - If parsed: match `call.function.name` against the tools list. Unknown → append tool-error message.
-      - If matched: try `mcp.callTool(name, args)`. On thrown exception → append tool-error message. On returned error object → append the structured result verbatim. On returned success → append the result verbatim as the tool content.
-      Each appended tool message is `{ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) }`. Continue to next iteration.
-   e. If `message.tool_calls` is absent and `message.content` is a non-null string: append `{ role: "assistant", content, at: now().toISOString() }` to `session.messages`, persist, release the mutex, return `content`.
-   f. If iteration count reaches 6 or wall-clock exceeds 300s: break with system-error path.
+   - Try to parse `call.function.arguments` as JSON. On failure, append tool-error message.
+   - If parsed: match `call.function.name` against the tools list. Unknown → append tool-error message.
+   - If matched: try `mcp.callTool(name, args)`. On thrown exception → append tool-error message. On returned error object → append the structured result verbatim. On returned success → append the result verbatim as the tool content.
+     Each appended tool message is `{ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) }`. Continue to next iteration.
+     e. If `message.tool_calls` is absent and `message.content` is a non-null string: append `{ role: "assistant", content, at: now().toISOString() }` to `session.messages`, persist, release the mutex, return `content`.
+     f. If iteration count reaches 6 or wall-clock exceeds 300s: break with system-error path.
 7. System-error path: append assistant message with one of the fixed strings below, persist, release the mutex, return.
    - Iteration cap: `"I hit a tool-call loop limit. Please rephrase your request or try a smaller step."`
    - Per-call timeout: `"The model took too long to respond. Please try again."`
@@ -391,12 +446,15 @@ Location: `src/server/prompt.ts`. Exports `buildSystemPrompt(): string`. Takes n
 The returned string contains, in order, these sections, with the rule sentences exactly verbatim:
 
 1. **Role statement.**
+
    > You are the supervisor of a PRD-building session. You speak directly to the user in chat. You use four MCP tools to read and write the PRD: `get_prd`, `update_section`, `list_empty_sections`, `mark_confirmed`. You are the only agent in this session.
 
 2. **PRD structure.**
+
    > The PRD has seven sections with fixed keys: `vision`, `problem`, `targetUsers`, `goals`, `coreFeatures`, `outOfScope`, `openQuestions`. Each section has `content` (markdown), `status` (one of `empty`, `draft`, `confirmed`), and `updatedAt`.
 
 3. **Editing discipline rules, word-for-word.**
+
    > 1. Before calling `update_section` on any section, you must know the section's current content. Call `get_prd` as the first tool call of every turn if you do not already have fresh PRD content from a tool result in this turn.
    > 2. When updating a section, preserve all existing content in that section verbatim unless the user has explicitly asked in this turn to change or remove specific parts. Never rephrase, normalize, tighten, or improve prose that was not the subject of the user's request.
    > 3. Do not call `update_section` on a section whose status is `confirmed` unless the user in this turn has explicitly asked to revise that section. When you do, set `user_requested_revision=true`.
@@ -411,10 +469,12 @@ The full exact string is the authoritative source; Vitest asserts that `buildSys
 ### Frontend
 
 React 18 + Vite + TypeScript + Tailwind. Routing via `react-router-dom` v6 with two routes:
+
 - `/` — session list in a sidebar, main area empty-state. "New session" button issues `POST /api/sessions`, navigates to `/sessions/:id` on response.
 - `/sessions/:id` — two-pane view. Chat pane left at `400px` fixed width. PRD pane right fills remaining viewport, scrollable.
 
 **Chat pane:**
+
 - Scrollable message list; auto-scrolls to bottom on new messages and on mount.
 - Message bubbles styled by role: user right-aligned neutral, assistant left-aligned subtle background.
 - Rendered via `react-markdown` with `remark-gfm`. No custom HTML extension, no raw HTML.
@@ -422,12 +482,14 @@ React 18 + Vite + TypeScript + Tailwind. Routing via `react-router-dom` v6 with 
 - Submit failure displays a single-line red error above the input: `"Send failed: <message>"` extracted from the response body's `error` or `message` field, falling back to the HTTP status text. Input is re-enabled.
 
 **PRD pane:**
+
 - Seven section blocks, one per `SectionKey`, rendered in `SectionKey` declaration order.
 - Each block shows: section label (human-readable), status pill (`empty` gray, `draft` blue, `confirmed` green), and rendered markdown content.
 - Empty content renders as a dimmed italic placeholder `"(empty)"`.
 - Polling: a `useEffect` hook starts polling `GET /api/sessions/:id` every 500ms while the chat input is disabled (turn in flight). Stops when the POST resolves or errors. On route mount, fetches once.
 
 **Session list (left sidebar on `/`):**
+
 - `GET /api/sessions` on mount; no auto-refresh.
 - Each row shows the title (or `"(untitled)"` if empty) and `updatedAt` as relative time.
 - Clicking a row navigates to `/sessions/:id`.
@@ -439,6 +501,7 @@ Types are imported from `src/shared/types.ts` — the same file the backend impo
 Location: `scripts/doc-edit-check.ts`. Run via `pnpm tsx scripts/doc-edit-check.ts`.
 
 The script:
+
 1. Deletes `./tmp/harness.sqlite` if present. Creates `./tmp/` if absent.
 2. Imports and starts the Hono backend in-process via an exported `startServer({ sqlitePath, port })` function that `src/server/index.ts` delegates to. Picks port 0 to bind a random free port.
 3. Spawns the MCP child internally (the same code path the server uses in production).
@@ -457,6 +520,7 @@ The script:
 9. Tears down: stops the HTTP server, kills the MCP child.
 
 **Pass criteria**, evaluated by the operator from the printed output:
+
 - `coreFeatures.content` contains three bullets covering real-time pane, section editing, and session autosave.
 - Each bullet's text is recognizably from the user's message — not paraphrased ("real-time PRD pane" survives, not "live document view" or similar).
 - `vision.content` still contains the phrase from turn 1 and was not rewritten by turns 2 or 3.
@@ -652,6 +716,7 @@ This is the canonical implementation workflow for EBT work mode. It is embedded 
 **One todo per slice. Not one todo per gate.** The slice lifecycle below is the work of completing a slice — it is not a checklist to track. Do not create separate todos for "run verification commands," "run code-quality-gate," "run spec-check," "rival checkpoint," "commit." That is ceremony noise that makes a routine slice look like seven items.
 
 If you use a todo tool, the structure is:
+
 - `Slice 1: <name>`
 - `Slice 2: <name>`
 - `Slice N: <name>`
@@ -682,6 +747,7 @@ The lifecycle below is what happens inside a single slice todo. Run it as contin
 **System-coherence check:** after every behavior-changing slice. May skip for pure internal refactors confirmed by existing type checks or tests.
 
 **Spec-check-gate:** at milestones only:
+
 - After the first slice (early drift detection)
 - After any slice that changes the public interface or observable behavior
 - After the final slice (full spec alignment check)
@@ -709,6 +775,7 @@ The lifecycle below is what happens inside a single slice todo. Run it as contin
 #### Rival Checkpoint Timing
 
 Call `rival-work` at:
+
 - After the first slice (is direction matching the spec?)
 - When implementation surprises you (something harder or different than expected)
 - When scope wants to grow (are we still building what was specced?)
@@ -734,6 +801,7 @@ When the worker, rival, or system-coherence agent surfaces a conflict between th
 #### Completion Criteria
 
 Work mode is complete when:
+
 - All slices are implemented
 - A final `spec-check-gate` runs against the full spec and passes
 - All verification commands from the Verification Commands section run and pass
@@ -744,91 +812,109 @@ Report completion with: what was built, what was verified, what Verification Sce
 ## Verification Scenarios
 
 ### Scenario: Create session and send first message
+
 - **Given**: the backend is running, the frontend is loaded at `/`, and LM Studio is serving the configured model.
 - **When**: the user clicks "New session", is navigated to `/sessions/:id`, and sends `"I want to build a tool that helps PMs draft PRDs."`.
 - **Then**: a new row appears in the `sessions` table with `messages_json` containing one user and one assistant message, `title` equal to the first 60 characters of the user message trimmed at a word boundary, and `prd_json` with all seven sections present.
 
 ### Scenario: Supervisor reads PRD as first tool call of every turn
+
 - **Given**: a fresh session with no prior tool calls.
 - **When**: the user sends any message.
 - **Then**: the first entry in the turn's tool-call trace is `call.function.name === "get_prd"`.
 
 ### Scenario: Agent fills a section from a direct request
+
 - **Given**: an existing session with all seven sections in `empty` state.
 - **When**: the user sends `"Please put the following vision: A PRD assistant that drafts sections from chat."`.
 - **Then**: `prd_json.vision.content` contains the string `"drafts sections from chat"`, `prd_json.vision.status === "draft"`, and the assistant's reply acknowledges the vision has been set.
 
 ### Scenario: Agent preserves existing content when adding a bullet
+
 - **Given**: an existing session where `prd_json.coreFeatures.content` is the markdown `"- Real-time PRD pane\n- Section-by-section editing"`.
 - **When**: the user sends `"Also add: session autosave."`.
 - **Then**: `prd_json.coreFeatures.content` contains all three bullets — "Real-time PRD pane", "Section-by-section editing", and a new bullet about session autosave — with the original two bullets byte-identical to before.
 
 ### Scenario: Confirmed section is not overwritten without user-requested revision
+
 - **Given**: an existing session where `prd_json.vision.status === "confirmed"` with content `"A PRD assistant that drafts sections from chat."`.
 - **When**: the supervisor, in response to a user message unrelated to vision, calls `update_section("vision", <new_content>)` without `user_requested_revision=true`.
 - **Then**: the MCP tool returns `{"error": "section_confirmed", "key": "vision", "hint": ...}`, `prd_json.vision.content` is unchanged, and the supervisor's final assistant message does not claim the vision was updated.
 
 ### Scenario: Confirmed section drops to draft on user-requested revision
+
 - **Given**: `prd_json.vision.status === "confirmed"` with non-empty content.
 - **When**: the user sends `"Please revise the vision to mention that we support multiple PRDs."` and the supervisor calls `update_section("vision", <new_content>, { user_requested_revision: true })` with `status` not provided.
 - **Then**: the tool succeeds, `prd_json.vision.content` updates to the new content, `prd_json.vision.status === "draft"`, and `prd_json.vision.updatedAt` advances.
 
 ### Scenario: Unknown section key is rejected structurally
+
 - **Given**: an existing session.
 - **When**: the supervisor calls `update_section("risks", "some content")`.
 - **Then**: the MCP tool returns `{"error": "unknown_section_key", "valid_keys": ["vision","problem","targetUsers","goals","coreFeatures","outOfScope","openQuestions"]}`, no row write occurs, and the turn continues without crashing.
 
 ### Scenario: mark_confirmed refuses to confirm an empty section
+
 - **Given**: an existing session where `prd_json.problem.content === ""` and `status === "empty"`.
 - **When**: the supervisor calls `mark_confirmed("problem")`.
 - **Then**: the MCP tool returns `{"error": "cannot_confirm_empty_section", "key": "problem"}`, the status remains `"empty"`, and the turn continues.
 
 ### Scenario: Content over size cap is rejected
+
 - **Given**: an existing session.
 - **When**: the supervisor calls `update_section("vision", <10001-character string>)`.
 - **Then**: the MCP tool returns `{"error": "content_too_long", "max": 10000, "got": 10001}`, no write occurs, and the turn continues.
 
 ### Scenario: Empty user message is rejected at the HTTP boundary
+
 - **Given**: a valid session id `abc`.
 - **When**: a client sends `POST /api/sessions/abc/messages` with body `{"text": "   "}`.
 - **Then**: the response is HTTP 400 with body `{"error": "invalid_request", "details": ...}`, no session mutation occurs, and no LLM call is made.
 
 ### Scenario: Malformed tool arguments do not crash the turn or lose the user message
+
 - **Given**: an existing session; the supervisor produces a `tool_calls` entry whose `function.arguments` is `"{ key: vision, content: ..."` — invalid JSON.
 - **When**: the turn loop processes that tool call.
 - **Then**: the user message is persisted to `messages_json` before the failure, no exception bubbles to the HTTP layer, the loop appends a `role: "tool"` message with `{"error": "invalid_tool_arguments", "message": <parser_message>}`, and the loop continues to the next iteration.
 
 ### Scenario: Unknown tool name returned by the model is recovered
+
 - **Given**: the supervisor emits a `tool_calls` entry with `function.name === "modify_vision"` (not a real tool).
 - **When**: the turn loop processes that tool call.
 - **Then**: the loop appends `{"error": "unknown_tool", "name": "modify_vision", "valid_tools": ["get_prd","update_section","list_empty_sections","mark_confirmed"]}`, and the loop continues to the next iteration.
 
 ### Scenario: Two concurrent turn attempts on the same session
+
 - **Given**: a session id `abc` with an in-flight `POST /api/sessions/abc/messages` request.
 - **When**: a second `POST /api/sessions/abc/messages` request for the same session arrives while the first is running.
 - **Then**: the second request returns HTTP 409 `{"error": "session_busy"}` within 100ms and does not block waiting for the first.
 
 ### Scenario: Turn exceeds iteration cap
+
 - **Given**: a session and a stubbed `LlmClient` that emits tool calls on every iteration indefinitely.
 - **When**: the loop would enter iteration 7.
 - **Then**: the loop stops, appends an assistant message `"I hit a tool-call loop limit. Please rephrase your request or try a smaller step."` to `messages_json`, persists, returns HTTP 200 with that reply content, and releases the mutex.
 
 ### Scenario: Per-call timeout on the LLM
+
 - **Given**: a session and a stubbed `LlmClient` whose `chat()` never resolves.
 - **When**: 90 seconds elapse on a single `chat()` call.
 - **Then**: the `AbortSignal` fires, the loop appends `"The model took too long to respond. Please try again."`, persists, returns HTTP 200, and releases the mutex.
 
 ### Scenario: Live PRD pane updates within two poll cycles of a section write
+
 - **Given**: the frontend is showing `/sessions/:id` with a turn in flight and `coreFeatures.content` currently empty.
 - **When**: the supervisor calls `update_section("coreFeatures", "- Feature A")` mid-turn.
 - **Then**: within 1000ms (two poll cycles) the rendered `coreFeatures` section block shows "Feature A" and the status pill reads `draft`, without a manual refresh.
 
 ### Scenario: Tool-calling smoke check (slice 3)
+
 - **Given**: LM Studio is running and serving `LM_STUDIO_MODEL`; slice 3 has added a temporary `POST /api/debug/tool-calling-smoke` route.
 - **When**: the operator (or the slice verification) calls the route, which invokes `llm.chat` with a single dummy tool named `echo` and messages asking the model to call `echo` with `{"text": "hi"}`.
 - **Then**: the response's `choices[0].message.tool_calls` is a non-empty array whose first entry has `function.name === "echo"` and parseable JSON arguments containing `text: "hi"`. Failure halts slice 3; slice 4 is not built against a model that cannot emit native `tool_calls`.
 
 ### Scenario: Doc-editing harness pass (slice 4)
+
 - **Given**: a clean `./tmp/harness.sqlite` file and LM Studio serving `LM_STUDIO_MODEL`.
 - **When**: the operator runs `pnpm doc-edit-check`.
 - **Then**: the script runs all three scripted turns without uncaught exception, prints the final `coreFeatures` section and `vision` section and the full PRD, and the operator confirms manually: `coreFeatures` contains three bullets covering real-time pane, section editing, and session autosave; bullet text is recognizably from the user messages (not paraphrased); `vision` still contains content from turn 1.
@@ -846,6 +932,7 @@ The spec's Requirements > System prompt section defines `buildSystemPrompt(): st
 Adaptation: `buildSystemPrompt()` remains argument-free and returns the verbatim prompt; `handleTurn` appends a single line `"\n\nThe session_id for every MCP tool call in this session is: {sessionId}"` to the system-role content before the first `llm.chat` call. The verbatim rule sentences and all other prompt content are byte-identical to the spec — the acceptance criterion (`buildSystemPrompt` contains each verbatim rule) still holds. Affected files: `src/server/turn.ts`.
 
 Alternatives considered and rejected:
+
 - Drop `session_id` from tool inputSchemas and have `McpClient.callTool` inject it server-side. Cleaner architecturally — the supervisor would see simpler tool signatures and could not fabricate the session_id — but requires updating four inputSchemas, the MCP tool implementations, the `McpClient` interface, and `handleTurn`'s tool-call dispatch. Documented here as a future adaptation knob if model reliability on session_id handling degrades.
 
 ### 2026-04-17 — post-slice-5: raised `maxIterations` from 6 to 12
@@ -866,23 +953,28 @@ slice_4_mcp_tools -> slice_5_live_pane
 ```
 
 ### Slice 1: Skeleton
+
 - **What**: Initialize the pnpm package, root `tsconfig.json` with strict settings, ESLint, Prettier, Vitest, Tailwind, Vite. Create `src/shared/types.ts` with full domain types per the Data model section. Stand up Hono backend with `GET /api/health` returning `{"ok": true}`. Stand up Vite + React + TS frontend with a landing page that fetches `/api/health` and displays the result. Root `pnpm dev` runs backend (`tsx watch src/server/index.ts`) and frontend (`vite`) concurrently; Vite proxies `/api/*` to `http://127.0.0.1:5174`.
 - **Verify**: `pnpm typecheck && pnpm lint && pnpm build` exits 0. Then: `pnpm dev`; open `http://localhost:5173`; page displays `ok: true`. Confirm Hono logs the listen address as `127.0.0.1:5174` (not `0.0.0.0`).
 - **Outcome**: Foundational. Two processes, proxy wiring, type foundation in place.
 
 ### Slice 2: Sessions CRUD
+
 - **What**: Add `better-sqlite3`. Create `sessions` table via an idempotent migration in `src/server/db.ts` (or `src/mcp/db.ts`, invoked on first open from the backend at boot even though the MCP child is not yet integrated — the schema is shared). Implement `GET /api/sessions`, `POST /api/sessions`, `GET /api/sessions/:id` with `zod`-validated I/O. Implement the initial PRD factory (all seven keys, `empty` status). Session list ordered by `updated_at DESC`. Frontend: `react-router-dom` with two routes; session list sidebar at `/`; "New session" button; `/sessions/:id` renders an empty two-pane shell (no chat input, no PRD content yet — just the section labels with `empty` pills).
 - **Verify**: `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` exits 0. Vitest covers the initial PRD factory and session-row serialization. Manually: create a session via the UI, confirm it appears in the list, refresh, confirm persistence; `sqlite3 ./data/prd-assist.sqlite "select * from sessions"` shows the row with all columns populated.
 - **Outcome**: User can create and list sessions. No chat, no tool calls.
 
 ### Slice 3: Chat without tools, plus tool-calling smoke check
+
 - **What**: Add `src/server/llm.ts` with the `LlmClient` interface and production adapter using the `openai` npm client pointed at `LM_STUDIO_BASE_URL`. Add `src/server/mutex.ts` with `SessionMutex`. Add `POST /api/sessions/:id/messages` with `zod` body validation (`text` trimmed length 1–10000). Implement a reduced `handleTurn` that ignores MCP tools entirely: single `llm.chat` call with system prompt + history, append assistant reply, persist, return. Implement title derivation on the first user message. Implement mutex-based 409. Frontend: chat pane with bubble rendering (`react-markdown` + `remark-gfm`) and input textarea; input disabled while a POST is in flight; failure renders inline error.
 
   Also add a temporary debug route `POST /api/debug/tool-calling-smoke` that invokes `llm.chat` with one dummy tool `echo` and asks the model to call it. Register the route behind an environment check so it only mounts when `NODE_ENV !== "production"`.
+
 - **Verify**: `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` exits 0. Vitest covers: title derivation (edge cases listed in Testing Approach), mutex acquire/release/contend, `LlmClient` interface adhered to by the production adapter (typecheck-level), route-level `text` validation. Manually: with LM Studio running, send a message, observe a reply, confirm title derivation, trigger a concurrent second POST and confirm 409. Run the tool-calling smoke check via `curl -X POST http://localhost:5174/api/debug/tool-calling-smoke` and confirm the response contains a `tool_calls` array with `function.name === "echo"`. If the smoke check fails, halt and escalate — slice 4 will not work as designed.
 - **Outcome**: User holds a basic chat with the supervisor. No PRD writes. Tool-calling format is proven to work against the configured model.
 
 ### Slice 4: MCP server + PRD tools + full turn loop + doc-editing harness
+
 - **What**: Implement the MCP server at `src/mcp/` with all four tools, including the `user_requested_revision` argument, key/content/status validators, empty-section rejection on `mark_confirmed`, and dedicated SQLite connection. Implement `src/server/mcpClient.ts` with the `McpClient` interface and a production adapter that spawns the MCP server as a child process and speaks the MCP protocol over stdio. Wire the child spawn into `src/server/index.ts` boot: wait for `initialize` handshake before starting HTTP listen; on child exit log and exit.
 
   Replace the reduced `handleTurn` with the full loop per the Turn loop section: LLM-client and MCP-client dependencies injected via `TurnDeps`, all tool-call errors handled with structured recovery, iteration cap (6), per-call timeout (90s), wall-clock cap (300s), fixed system-error strings. Remove the debug `tool-calling-smoke` route.
@@ -892,10 +984,12 @@ slice_4_mcp_tools -> slice_5_live_pane
   Frontend: `SectionBlock` renders the markdown content and the status pill; empty content shows `"(empty)"`. No polling yet. The PRD pane renders the current state on mount and on navigation.
 
   Write `scripts/doc-edit-check.ts` per the Doc-editing verification harness section. Add `doc-edit-check` script to `package.json`.
+
 - **Verify**: `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` exits 0. Vitest covers: `SectionKey`/`SectionStatus` validators, content-length validator, `user_requested_revision` gating logic (tests call tool functions directly), `list_empty_sections` ordering, `mark_confirmed` on empty-content rejection, `buildSystemPrompt` contains each verbatim rule sentence, full `handleTurn` against stubbed `LlmClient` covering: happy path with `get_prd` + `update_section` + reply, JSON-parse-failure recovery, unknown-tool recovery, MCP-exception recovery, iteration cap breach, per-call timeout (signal abort), wall-clock breach, per-session mutex contention. Then: `rm -f ./tmp/harness.sqlite && pnpm doc-edit-check` with LM Studio running. Confirm all three scripted turns complete, the harness prints `coreFeatures` with three bullets, and the operator confirms the three pass conditions manually.
 - **Outcome**: The agent writes PRD sections in response to user chat. Reload of `/sessions/:id` shows section content. Doc-editing reliability is empirically verified on the target model.
 
 ### Slice 5: Live PRD pane
+
 - **What**: Implement `src/web/src/hooks/useSessionPolling.ts`: polls `GET /api/sessions/:id` every 500ms while a flag (`active`) is true, stops otherwise, returns the most recent session. Wire the flag to the chat pane's in-flight state. `PrdPane.tsx` consumes the polled session and re-renders section blocks. Finalize layout: chat on the left at 400px fixed width, PRD pane on the right scrollable.
 - **Verify**: `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` exits 0. Vitest covers the polling hook's start/stop transitions (unit test using fake timers). Manually execute the "Live PRD pane updates within two poll cycles of a section write" scenario: start a new session, send a message that asks the agent to write the vision, confirm the vision content appears in the right pane within 1000ms of the agent's `update_section` tool call returning, without manual refresh. Also confirm: status pill transitions from `empty` → `draft`; empty sections still show the `(empty)` placeholder.
 - **Outcome**: User sees the PRD form live while chatting. MVP complete.
@@ -907,7 +1001,7 @@ slice_4_mcp_tools -> slice_5_live_pane
 - The MCP server exposes exactly four tools, verified by calling `listTools` from a Vitest integration test and asserting the returned names equal the set `{"get_prd", "update_section", "list_empty_sections", "mark_confirmed"}`.
 - Each of the four MCP tool descriptions matches, byte-for-byte, the verbatim strings specified in the MCP tools section of this spec — verified by a Vitest equality check on the manifest.
 - Each MCP tool's `inputSchema.properties.key` enum (where present) contains exactly the seven `SectionKey` values in the declared order — verified by a Vitest equality check on the manifest.
-- `MCP tool results are wrapped as `{ content: [{ type: "text", text: <json-string> }], isError: false }` — verified by a Vitest call against a real `get_prd` invocation asserting the shape of the returned result.
+- `MCP tool results are wrapped as `{ content: [{ type: "text", text: <json-string> }], isError: false }`— verified by a Vitest call against a real`get_prd` invocation asserting the shape of the returned result.
 - The MCP-to-OpenAI tool conversion function in `src/server/mcpClient.ts` produces `{ type: "function", function: { name, description, parameters } }` entries with `parameters` identical to the MCP tool's `inputSchema` — verified by a Vitest equality check.
 - `src/server/prompt.ts` exports `buildSystemPrompt(): string`. Vitest asserts the return value contains, byte-for-byte, each of the five numbered rule sentences defined in the System prompt section.
 - `src/server/turn.ts` exports `handleTurn` taking a `TurnDeps` argument. `src/server/turn.ts` does not statically import `openai`, `@modelcontextprotocol/sdk`, or `better-sqlite3` — verified by `grep -E "from ['\"](openai|@modelcontextprotocol|better-sqlite3)" src/server/turn.ts` returning no matches.

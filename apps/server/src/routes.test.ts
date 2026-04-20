@@ -55,9 +55,7 @@ describe("GET /api/sessions", () => {
 describe("POST /api/sessions", () => {
   it("returns 201 with { id }", async () => {
     const { app } = buildApp();
-    const res = await app.fetch(
-      new Request("http://localhost/api/sessions", { method: "POST" }),
-    );
+    const res = await app.fetch(new Request("http://localhost/api/sessions", { method: "POST" }));
     expect(res.status).toBe(201);
     const body = await parseJson(res, z.object({ id: z.string() }));
     expect(body.id.length).toBeGreaterThan(0);
@@ -81,9 +79,7 @@ describe("GET /api/sessions/:id", () => {
 
   it("returns 404 with error session_not_found for unknown id", async () => {
     const { app } = buildApp();
-    const res = await app.fetch(
-      new Request("http://localhost/api/sessions/unknown-id"),
-    );
+    const res = await app.fetch(new Request("http://localhost/api/sessions/unknown-id"));
     expect(res.status).toBe(404);
     const body = await parseJson(res, z.object({ error: z.string() }));
     expect(body.error).toBe("session_not_found");

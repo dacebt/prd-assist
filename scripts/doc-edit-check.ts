@@ -37,11 +37,7 @@ async function checkLmStudio(): Promise<void> {
   }
 }
 
-async function postMessage(
-  port: number,
-  sessionId: string,
-  text: string,
-): Promise<string> {
+async function postMessage(port: number, sessionId: string, text: string): Promise<string> {
   const res = await fetch(`http://127.0.0.1:${port}/api/sessions/${sessionId}/messages`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -51,7 +47,7 @@ async function postMessage(
     const body = await res.text();
     throw new Error(`POST /messages failed: ${res.status} ${body}`);
   }
-  const data = await res.json() as { reply: string };
+  const data = (await res.json()) as { reply: string };
   return data.reply;
 }
 
@@ -88,7 +84,7 @@ async function main(): Promise<void> {
 
     const createRes = await fetch(`http://127.0.0.1:${port}/api/sessions`, { method: "POST" });
     if (!createRes.ok) throw new Error(`Failed to create session: ${createRes.status}`);
-    const { id: sessionId } = await createRes.json() as { id: string };
+    const { id: sessionId } = (await createRes.json()) as { id: string };
 
     console.log(`Session ID: ${sessionId}`);
 
@@ -118,16 +114,14 @@ async function main(): Promise<void> {
 
     const sessionRes = await fetch(`http://127.0.0.1:${port}/api/sessions/${sessionId}`);
     if (!sessionRes.ok) throw new Error(`Failed to fetch session: ${sessionRes.status}`);
-    const finalSession = await sessionRes.json() as { prd: PRD };
+    const finalSession = (await sessionRes.json()) as { prd: PRD };
     const prd = finalSession.prd;
 
     const coreFeaturesContent = prd.coreFeatures?.content ?? "";
     const visionContent = prd.vision?.content ?? "";
 
     const bulletPattern = /^\s*(-|\*|\d+\.)\s+/m;
-    const bulletLines = coreFeaturesContent.split("\n").filter((line) =>
-      bulletPattern.test(line),
-    );
+    const bulletLines = coreFeaturesContent.split("\n").filter((line) => bulletPattern.test(line));
     const bulletCount = bulletLines.length;
 
     console.log("\n=== HARNESS RESULTS ===");

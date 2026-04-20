@@ -87,7 +87,13 @@ describe("startPolling", () => {
     const fetchFn = vi.fn().mockResolvedValue(STUB_SESSION);
     const onUpdate = vi.fn();
 
-    const cancel = startPolling({ active: true, sessionId: "s1", fetchFn, onUpdate, intervalMs: 500 });
+    const cancel = startPolling({
+      active: true,
+      sessionId: "s1",
+      fetchFn,
+      onUpdate,
+      intervalMs: 500,
+    });
 
     await vi.advanceTimersByTimeAsync(500);
     expect(fetchFn).toHaveBeenCalledTimes(1);
@@ -100,10 +106,20 @@ describe("startPolling", () => {
 
   it("discards in-flight fetch result after cancel", async () => {
     let resolve!: (v: Session) => void;
-    const fetchFn = vi.fn().mockReturnValue(new Promise<Session>((res) => { resolve = res; }));
+    const fetchFn = vi.fn().mockReturnValue(
+      new Promise<Session>((res) => {
+        resolve = res;
+      }),
+    );
     const onUpdate = vi.fn();
 
-    const cancel = startPolling({ active: true, sessionId: "s1", fetchFn, onUpdate, intervalMs: 500 });
+    const cancel = startPolling({
+      active: true,
+      sessionId: "s1",
+      fetchFn,
+      onUpdate,
+      intervalMs: 500,
+    });
 
     await vi.advanceTimersByTimeAsync(500);
     expect(fetchFn).toHaveBeenCalledTimes(1);

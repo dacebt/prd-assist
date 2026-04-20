@@ -18,21 +18,22 @@ Add a dark/light theme to the frontend. User can toggle between them. Default is
 
 ## Color mapping (light → dark)
 
-| Light | Dark |
-|---|---|
-| `bg-white` | `dark:bg-gray-900` |
-| `bg-gray-50` | `dark:bg-gray-950` |
-| `bg-gray-100` | `dark:bg-gray-800` |
-| `bg-gray-200` (user msg) | `dark:bg-gray-700` |
-| `text-gray-900` / `text-gray-800` / `text-gray-700` | `dark:text-gray-100` |
-| `text-gray-500` / `text-gray-400` | `dark:text-gray-400` / `dark:text-gray-500` |
+| Light                                                     | Dark                                                                     |
+| --------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `bg-white`                                                | `dark:bg-gray-900`                                                       |
+| `bg-gray-50`                                              | `dark:bg-gray-950`                                                       |
+| `bg-gray-100`                                             | `dark:bg-gray-800`                                                       |
+| `bg-gray-200` (user msg)                                  | `dark:bg-gray-700`                                                       |
+| `text-gray-900` / `text-gray-800` / `text-gray-700`       | `dark:text-gray-100`                                                     |
+| `text-gray-500` / `text-gray-400`                         | `dark:text-gray-400` / `dark:text-gray-500`                              |
 | `border-gray-200` / `border-gray-100` / `border-gray-300` | `dark:border-gray-700` / `dark:border-gray-800` / `dark:border-gray-600` |
-| `bg-blue-50` / `border-blue-100` (assistant msg) | `dark:bg-blue-950/40` / `dark:border-blue-900` |
-| Status pills (yellow/green/gray) | muted dark equivalents (`dark:bg-*-900/40 dark:text-*-300`) |
+| `bg-blue-50` / `border-blue-100` (assistant msg)          | `dark:bg-blue-950/40` / `dark:border-blue-900`                           |
+| Status pills (yellow/green/gray)                          | muted dark equivalents (`dark:bg-*-900/40 dark:text-*-300`)              |
 
 ## Slices
 
 ### Slice 1: Theme infrastructure
+
 - Update `tailwind.config.js`: add `darkMode: 'class'`.
 - Create `src/web/src/hooks/useTheme.ts` exporting `ThemeProvider` and `useTheme` (context-based; read/write localStorage; apply `dark` class to `documentElement`).
 - Wrap app in `ThemeProvider` (in `main.tsx` or `App.tsx`).
@@ -42,12 +43,14 @@ Add a dark/light theme to the frontend. User can toggle between them. Default is
 **Verify:** loading the app with no stored preference shows dark background; `localStorage.getItem('prd-assist:theme')` returns `'dark'` after first load; the `<html>` element has class `dark`.
 
 ### Slice 2: Toggle control
+
 - Add a theme toggle button to `Sidebar.tsx` header (shows "Dark" or "Light" label, clicking flips the theme).
 - Style the button consistently for both themes.
 
 **Verify:** clicking the toggle switches the whole UI between dark and light; preference persists across reload.
 
 ### Slice 3: Component dark variants
+
 - Retrofit: `Sidebar`, `NewSessionButton`, `SessionList`, `ChatPane`, `MessageBubble`, `PrdPane`, `SectionBlock`, `SessionListPage`, `SessionPage` with `dark:` variants per color map above.
 - Ensure focus rings, hover states, disabled states, and markdown prose all read correctly in both modes. For markdown, use `dark:prose-invert` on `SectionBlock` prose wrapper.
 - Error text (`text-red-500`) should be readable in both — leave as-is or use `dark:text-red-400`.

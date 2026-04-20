@@ -31,11 +31,7 @@ function makePrd(overrides: Partial<Record<string, Partial<Section>>> = {}): PRD
   return prd;
 }
 
-function seedSession(
-  db: Database.Database,
-  id: string,
-  prd: PRD = makePrd(),
-): void {
+function seedSession(db: Database.Database, id: string, prd: PRD = makePrd()): void {
   db.prepare(
     "INSERT INTO sessions (id, title, created_at, updated_at, messages_json, prd_json) VALUES (?, ?, ?, ?, ?, ?)",
   ).run(id, "", "2026-01-01T00:00:00.000Z", "2026-01-01T00:00:00.000Z", "[]", JSON.stringify(prd));
@@ -112,11 +108,7 @@ describe("update_section", () => {
   });
 
   it("rejects update on confirmed section without user_requested_revision", () => {
-    seedSession(
-      db,
-      SESSION_ID,
-      makePrd({ vision: { content: "original", status: "confirmed" } }),
-    );
+    seedSession(db, SESSION_ID, makePrd({ vision: { content: "original", status: "confirmed" } }));
     const result = tools.update_section({
       session_id: SESSION_ID,
       key: "vision",
@@ -126,11 +118,7 @@ describe("update_section", () => {
   });
 
   it("allows update on confirmed section with user_requested_revision=true and drops status to draft", () => {
-    seedSession(
-      db,
-      SESSION_ID,
-      makePrd({ vision: { content: "original", status: "confirmed" } }),
-    );
+    seedSession(db, SESSION_ID, makePrd({ vision: { content: "original", status: "confirmed" } }));
     const result = tools.update_section({
       session_id: SESSION_ID,
       key: "vision",
@@ -215,11 +203,7 @@ describe("mark_confirmed", () => {
   });
 
   it("rejects whitespace-only content", () => {
-    seedSession(
-      db,
-      SESSION_ID,
-      makePrd({ vision: { content: "   ", status: "draft" } }),
-    );
+    seedSession(db, SESSION_ID, makePrd({ vision: { content: "   ", status: "draft" } }));
     const result = tools.mark_confirmed({ session_id: SESSION_ID, key: "vision" });
     expect(result).toMatchObject({ error: "cannot_confirm_empty_section" });
   });

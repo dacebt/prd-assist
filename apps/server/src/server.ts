@@ -42,19 +42,16 @@ export async function startServer(
   });
 
   return new Promise((resolve) => {
-    const server = serve(
-      { fetch: app.fetch, hostname: opts.hostname, port: opts.port },
-      (info) => {
-        console.log(`listening on ${info.address}:${info.port}`);
-        resolve({
-          port: info.port,
-          async close() {
-            await mcp.close();
-            await new Promise<void>((res) => server.close(() => res()));
-            db.close();
-          },
-        });
-      },
-    );
+    const server = serve({ fetch: app.fetch, hostname: opts.hostname, port: opts.port }, (info) => {
+      console.log(`listening on ${info.address}:${info.port}`);
+      resolve({
+        port: info.port,
+        async close() {
+          await mcp.close();
+          await new Promise<void>((res) => server.close(() => res()));
+          db.close();
+        },
+      });
+    });
   });
 }

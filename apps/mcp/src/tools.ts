@@ -33,9 +33,7 @@ function sessionNotFound(session_id: string): SessionNotFoundError {
 }
 
 function parsePrd(db: Database.Database, sessionId: string): PRD | SessionNotFoundError {
-  const row = db
-    .prepare("SELECT prd_json FROM sessions WHERE id = ?")
-    .get(sessionId);
+  const row = db.prepare("SELECT prd_json FROM sessions WHERE id = ?").get(sessionId);
   if (row === undefined) return sessionNotFound(sessionId);
   const parsed = PrdRowSchema.parse(row);
   return PrdSchema.parse(JSON.parse(parsed.prd_json));
@@ -56,7 +54,13 @@ export function createTools(db: Database.Database) {
 
   function update_section(
     args: UpdateSectionArgs,
-  ): Section | UnknownSectionKeyError | InvalidStatusError | ContentTooLongError | SectionConfirmedError | SessionNotFoundError {
+  ):
+    | Section
+    | UnknownSectionKeyError
+    | InvalidStatusError
+    | ContentTooLongError
+    | SectionConfirmedError
+    | SessionNotFoundError {
     const keyResult = SectionKeySchema.safeParse(args.key);
     if (!keyResult.success) {
       return { error: "unknown_section_key", valid_keys: [...SECTION_KEYS_ARRAY] };
@@ -100,9 +104,7 @@ export function createTools(db: Database.Database) {
     return updatedSection;
   }
 
-  function list_empty_sections(
-    args: ListEmptySectionsArgs,
-  ): SectionKey[] | SessionNotFoundError {
+  function list_empty_sections(args: ListEmptySectionsArgs): SectionKey[] | SessionNotFoundError {
     const prdOrError = parsePrd(db, args.session_id);
     if ("error" in prdOrError) return prdOrError;
     const prd = prdOrError;

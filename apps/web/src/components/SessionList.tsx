@@ -20,13 +20,13 @@ export default function SessionList() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchSessions()
-      .then(setSessions)
-      .catch(console.error);
+    fetchSessions().then(setSessions).catch(console.error);
   }, []);
 
   if (sessions.length === 0) {
-    return <p className="text-sm text-gray-400 italic px-4 py-2 dark:text-gray-500">No sessions yet.</p>;
+    return (
+      <p className="text-sm text-gray-400 italic px-4 py-2 dark:text-gray-500">No sessions yet.</p>
+    );
   }
 
   return (
