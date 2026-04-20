@@ -13,7 +13,9 @@
     "typecheck": "turbo typecheck",
     "test": "turbo test",
     "lint": "eslint --no-error-on-unmatched-pattern 'apps/*/src/**/*.{ts,tsx}' 'packages/*/src/**/*.ts' 'scripts/**/*.ts'",
-    "doc-edit-check": "tsx scripts/doc-edit-check.ts"
+    "doc-edit-check": "tsx scripts/doc-edit-check.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@prd-assist/shared": "workspace:*"
