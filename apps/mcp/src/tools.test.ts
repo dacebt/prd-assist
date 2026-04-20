@@ -23,12 +23,12 @@ function openTestDb(): Database.Database {
 function makePrd(overrides: Partial<Record<string, Partial<Section>>> = {}): PRD {
   const ts = "2026-01-01T00:00:00.000Z";
   const base: Section = { content: "", status: "empty", updatedAt: ts };
-  const prd = {} as PRD;
-  for (const key of SECTION_KEYS) {
-    const override = overrides[key];
-    prd[key] = override ? { ...base, ...override } : { ...base };
-  }
-  return prd;
+  return Object.fromEntries(
+    SECTION_KEYS.map((key) => {
+      const override = overrides[key];
+      return [key, override ? { ...base, ...override } : { ...base }];
+    }),
+  ) as PRD;
 }
 
 function seedSession(db: Database.Database, id: string, prd: PRD = makePrd()): void {

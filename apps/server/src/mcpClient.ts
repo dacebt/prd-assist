@@ -43,7 +43,11 @@ function resolveLaunch(): { command: string; args: string[] } {
 export async function createMcpClient(sqlitePath?: string): Promise<McpClient> {
   const { command, args } = resolveLaunch();
 
-  const env: Record<string, string> = { ...process.env } as Record<string, string>;
+  const env: Record<string, string> = Object.fromEntries(
+    Object.entries(process.env).filter(
+      (entry): entry is [string, string] => entry[1] !== undefined,
+    ),
+  );
   if (sqlitePath !== undefined) {
     env["SQLITE_PATH"] = sqlitePath;
   }

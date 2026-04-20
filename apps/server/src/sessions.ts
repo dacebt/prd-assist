@@ -32,11 +32,7 @@ export interface SessionStore {
 export function initialPrd(now: Date): PRD {
   const ts = now.toISOString();
   const emptySection: Section = { content: "", status: "empty", updatedAt: ts };
-  const prd: PRD = {} as PRD;
-  for (const key of SECTION_KEYS) {
-    prd[key] = { ...emptySection };
-  }
-  return prd;
+  return Object.fromEntries(SECTION_KEYS.map((key) => [key, { ...emptySection }])) as PRD;
 }
 
 export function createSessionStore(db: Database.Database): SessionStore {

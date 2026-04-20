@@ -3,6 +3,7 @@ import { handleTurn, SessionBusyError, SessionNotFoundError, type TurnDeps } fro
 import type { LlmClient, AssistantMessage } from "./llm";
 import type { McpClient, McpToolDescriptor } from "./mcpClient";
 import type { SessionStore } from "./sessions";
+import { initialPrd } from "./sessions";
 import type { SessionMutex } from "./mutex";
 import type { Session } from "@prd-assist/shared";
 import { createSessionMutex } from "./mutex";
@@ -14,7 +15,7 @@ function makeSession(overrides: Partial<Session> = {}): Session {
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
     messages: [],
-    prd: {} as Session["prd"],
+    prd: initialPrd(new Date("2026-01-01T00:00:00.000Z")),
     ...overrides,
   };
 }
