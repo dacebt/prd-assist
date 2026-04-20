@@ -7,7 +7,7 @@ import ChatPane from "../components/ChatPane";
 import PrdPane from "../components/PrdPane";
 import ResizeHandle from "../components/ResizeHandle";
 import { useSessionPolling } from "../hooks/useSessionPolling";
-import { usePanelLayout, PRD_MIN, CHAT_MIN } from "../hooks/usePanelLayout";
+import { usePanelLayout, PRD_MIN, CHAT_MIN, SIDEBAR_MIN } from "../hooks/usePanelLayout";
 
 const HANDLE_WIDTH = 4;
 
@@ -38,6 +38,12 @@ function ContentArea({ chatPane, session, layout }: ContentAreaProps) {
         </div>
         <ResizeHandle
           ariaLabel="Resize chat panel"
+          valueNow={layout.chatWidth}
+          valueMin={CHAT_MIN}
+          valueMax={Math.max(
+            CHAT_MIN,
+            window.innerWidth - layout.sidebarWidth - PRD_MIN - HANDLE_WIDTH * 2,
+          )}
           onResize={(dx) => {
             const maxChat = Math.max(
               0,
@@ -84,6 +90,15 @@ function SessionView({ session, turnInFlight, onBeforeSend, onAfterSend }: Sessi
       </div>
       <ResizeHandle
         ariaLabel="Resize sessions sidebar"
+        valueNow={layout.sidebarWidth}
+        valueMin={SIDEBAR_MIN}
+        valueMax={Math.max(
+          SIDEBAR_MIN,
+          window.innerWidth -
+            CHAT_MIN -
+            (layout.prdOpen ? PRD_MIN + HANDLE_WIDTH : 0) -
+            HANDLE_WIDTH,
+        )}
         onResize={(dx) => {
           const prdAllowance = layout.prdOpen ? PRD_MIN + HANDLE_WIDTH : 0;
           const maxSidebar = Math.max(
