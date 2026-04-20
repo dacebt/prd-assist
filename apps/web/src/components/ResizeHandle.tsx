@@ -16,8 +16,8 @@ function keyboardDelta(
 ): number | null {
   if (e.key === "ArrowLeft") return e.shiftKey ? -64 : -16;
   if (e.key === "ArrowRight") return e.shiftKey ? 64 : 16;
-  if (e.key === "Home") return valueMin - valueNow;
-  if (e.key === "End") return valueMax - valueNow;
+  if (e.key === "Home") return valueNow - valueMin;
+  if (e.key === "End") return valueNow - valueMax;
   return null;
 }
 

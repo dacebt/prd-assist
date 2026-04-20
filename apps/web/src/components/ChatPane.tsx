@@ -53,6 +53,7 @@ function Composer({ text, error, inFlight, onTextChange, onSubmit }: ComposerPro
         onChange={(e) => onTextChange(e.target.value)}
         onKeyDown={handleKeyDown}
         disabled={inFlight}
+        autoFocus
       />
       <button
         className="mt-2 w-full bg-blue-500 hover:bg-blue-600 text-white text-sm rounded py-1.5 disabled:opacity-50"
@@ -99,7 +100,7 @@ export default function ChatPane({ session, inFlight, onBeforeSend, onAfterSend 
   }
 
   return (
-    <div className="h-full w-full border-r border-gray-200 bg-white flex flex-col dark:border-gray-800 dark:bg-gray-900">
+    <div className="h-full w-full bg-white flex flex-col dark:bg-gray-900">
       <MessageList messages={session.messages} bottomRef={bottomRef} />
       <Composer
         text={text}

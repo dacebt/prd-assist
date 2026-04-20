@@ -1,81 +1,31 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { fetchSession } from "../api";
 import type { Session } from "@prd-assist/shared";
-import Sidebar from "../components/Sidebar";
+import TopBar from "../components/TopBar";
 import ChatPane from "../components/ChatPane";
 import PrdPane from "../components/PrdPane";
 import ResizeHandle from "../components/ResizeHandle";
-import { useSessionPolling } from "../hooks/useSessionPolling";
-import { usePanelLayout, PRD_MIN, CHAT_MIN, SIDEBAR_MIN } from "../hooks/usePanelLayout";
+import { usePrdPanel, PRD_MIN } from "../hooks/usePrdPanel";
+import type { PrdPanel } from "../hooks/usePrdPanel";
+import { useSessionState } from "../hooks/useSessionState";
+import type { SessionLoadState } from "../hooks/useSessionState";
 
-const HANDLE_WIDTH = 4;
-
-type LoadState =
-  | { status: "loading" }
-  | { status: "loaded"; session: Session }
-  | { status: "error"; message: string };
-
-interface SessionViewProps {
+interface SessionContentProps {
   session: Session;
+  panel: PrdPanel;
   turnInFlight: boolean;
   onBeforeSend: () => void;
   onAfterSend: (optimistic: Session | undefined) => void;
 }
 
-interface ContentAreaProps {
-  chatPane: React.ReactNode;
-  session: Session;
-  layout: ReturnType<typeof usePanelLayout>;
-}
-
-function ContentArea({ chatPane, session, layout }: ContentAreaProps) {
-  if (layout.prdOpen) {
-    return (
-      <>
-        <div style={{ width: layout.chatWidth }} className="h-full shrink-0">
-          {chatPane}
-        </div>
-        <ResizeHandle
-          ariaLabel="Resize chat panel"
-          valueNow={layout.chatWidth}
-          valueMin={CHAT_MIN}
-          valueMax={Math.max(
-            CHAT_MIN,
-            window.innerWidth - layout.sidebarWidth - PRD_MIN - HANDLE_WIDTH * 2,
-          )}
-          onResize={(dx) => {
-            const maxChat = Math.max(
-              0,
-              window.innerWidth - layout.sidebarWidth - PRD_MIN - HANDLE_WIDTH * 2,
-            );
-            layout.setChatWidth(Math.min(layout.chatWidth + dx, maxChat));
-          }}
-        />
-        <div className="h-full flex-1 overflow-hidden bg-gray-50 dark:bg-gray-950">
-          <PrdPane prd={session.prd} onClose={layout.togglePrd} />
-        </div>
-      </>
-    );
-  }
-  return (
-    <>
-      <div className="h-full flex-1">{chatPane}</div>
-      <button
-        type="button"
-        onClick={layout.togglePrd}
-        aria-label="Open PRD panel"
-        className="h-full shrink-0 border-l border-gray-200 bg-gray-50 px-2 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-400 dark:hover:bg-gray-900 dark:hover:text-gray-100"
-      >
-        PRD ›
-      </button>
-    </>
-  );
-}
-
-function SessionView({ session, turnInFlight, onBeforeSend, onAfterSend }: SessionViewProps) {
-  const layout = usePanelLayout();
-  const chatPane = (
+function SessionContent({
+  session,
+  panel,
+  turnInFlight,
+  onBeforeSend,
+  onAfterSend,
+}: SessionContentProps) {
+  const chat = (
     <ChatPane
       session={session}
       inFlight={turnInFlight}
@@ -83,99 +33,82 @@ function SessionView({ session, turnInFlight, onBeforeSend, onAfterSend }: Sessi
       onAfterSend={onAfterSend}
     />
   );
+
+  if (!panel.open) {
+    return <div className="h-full flex-1">{chat}</div>;
+  }
+
   return (
     <>
-      <div style={{ width: layout.sidebarWidth }} className="h-full shrink-0">
-        <Sidebar />
-      </div>
+      <div className="h-full flex-1 min-w-0">{chat}</div>
       <ResizeHandle
-        ariaLabel="Resize sessions sidebar"
-        valueNow={layout.sidebarWidth}
-        valueMin={SIDEBAR_MIN}
-        valueMax={Math.max(
-          SIDEBAR_MIN,
-          window.innerWidth -
-            CHAT_MIN -
-            (layout.prdOpen ? PRD_MIN + HANDLE_WIDTH : 0) -
-            HANDLE_WIDTH,
-        )}
-        onResize={(dx) => {
-          const prdAllowance = layout.prdOpen ? PRD_MIN + HANDLE_WIDTH : 0;
-          const maxSidebar = Math.max(
-            0,
-            window.innerWidth - CHAT_MIN - prdAllowance - HANDLE_WIDTH,
-          );
-          layout.setSidebarWidth(Math.min(layout.sidebarWidth + dx, maxSidebar));
-        }}
+        ariaLabel="Resize PRD panel"
+        valueNow={panel.width}
+        valueMin={PRD_MIN}
+        valueMax={panel.maxWidth}
+        onResize={(dx) => panel.setWidth(panel.width - dx)}
       />
-      <ContentArea chatPane={chatPane} session={session} layout={layout} />
+      <div
+        style={{ width: panel.width }}
+        className="h-full shrink-0 overflow-hidden bg-gray-50 dark:bg-gray-950"
+      >
+        <PrdPane prd={session.prd} />
+      </div>
     </>
   );
 }
 
-function LoadingOrErrorView({ state }: { state: Exclude<LoadState, { status: "loaded" }> }) {
-  return (
-    <div className="flex-1 overflow-y-auto bg-gray-50 p-4 dark:bg-gray-950">
-      {state.status === "loading" && (
-        <p className="text-sm text-gray-400 italic dark:text-gray-500">Loading…</p>
-      )}
-      {state.status === "error" && (
-        <p className="text-sm text-red-500 dark:text-red-400">{state.message}</p>
-      )}
-    </div>
-  );
+function resolveTitle(state: SessionLoadState): string {
+  if (state.status === "loading") return "Loading…";
+  if (state.status === "error") return "Session not found";
+  return state.session.title || "(untitled)";
 }
 
 export default function SessionPage() {
   const { id } = useParams<{ id: string }>();
-  const [state, setState] = useState<LoadState>({ status: "loading" });
-  const [turnInFlight, setTurnInFlight] = useState(false);
+  const panel = usePrdPanel();
+  const { state, turnInFlight, handleBeforeSend, handleAfterSend } = useSessionState(id);
+
+  const resolvedTitle = resolveTitle(state);
 
   useEffect(() => {
-    if (!id) {
-      setState({ status: "error", message: "No session id in URL" });
-      return;
-    }
-    fetchSession(id)
-      .then((session) => setState({ status: "loaded", session }))
-      .catch((err: unknown) => {
-        const message = err instanceof Error ? err.message : "Unknown error";
-        setState({ status: "error", message });
-      });
-  }, [id]);
+    document.title = `${resolvedTitle} · prd-assist`;
+  }, [resolvedTitle]);
 
-  useSessionPolling({
-    sessionId: id,
-    active: turnInFlight,
-    onUpdate: (session) => setState({ status: "loaded", session }),
-  });
-
-  function handleBeforeSend() {
-    setTurnInFlight(true);
-  }
-
-  function handleAfterSend(optimistic: Session | undefined) {
-    setTurnInFlight(false);
-    if (optimistic) setState({ status: "loaded", session: optimistic });
-    if (id) {
-      fetchSession(id)
-        .then((fresh) => setState({ status: "loaded", session: fresh }))
-        .catch(() => undefined);
-    }
-  }
+  useEffect(() => {
+    return () => {
+      document.title = "prd-assist";
+    };
+  }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      {state.status === "loaded" ? (
-        <SessionView
-          session={state.session}
-          turnInFlight={turnInFlight}
-          onBeforeSend={handleBeforeSend}
-          onAfterSend={handleAfterSend}
-        />
-      ) : (
-        <LoadingOrErrorView state={state} />
-      )}
+    <div className="flex h-screen flex-col overflow-hidden">
+      <TopBar
+        title={resolvedTitle}
+        prdOpen={panel.open}
+        prdCanOpen={panel.canOpen}
+        onTogglePrd={panel.toggle}
+      />
+      <div className="flex flex-1 overflow-hidden">
+        {state.status === "loaded" ? (
+          <SessionContent
+            session={state.session}
+            panel={panel}
+            turnInFlight={turnInFlight}
+            onBeforeSend={handleBeforeSend}
+            onAfterSend={handleAfterSend}
+          />
+        ) : (
+          <div className="flex-1 overflow-y-auto bg-gray-50 p-4 dark:bg-gray-950">
+            {state.status === "loading" && (
+              <p className="text-sm text-gray-400 italic dark:text-gray-500">Loading…</p>
+            )}
+            {state.status === "error" && (
+              <p className="text-sm text-red-500 dark:text-red-400">{state.message}</p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
