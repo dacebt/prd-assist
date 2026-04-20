@@ -117,8 +117,8 @@ async function main(): Promise<void> {
     const finalSession = (await sessionRes.json()) as { prd: PRD };
     const prd = finalSession.prd;
 
-    const coreFeaturesContent = prd.coreFeatures?.content ?? "";
-    const visionContent = prd.vision?.content ?? "";
+    const coreFeaturesContent = prd.coreFeatures.content;
+    const visionContent = prd.vision.content;
 
     const bulletPattern = /^\s*(-|\*|\d+\.)\s+/m;
     const bulletLines = coreFeaturesContent.split("\n").filter((line) => bulletPattern.test(line));

@@ -1,4 +1,4 @@
-import Database from "better-sqlite3";
+import type Database from "better-sqlite3";
 import { z } from "zod";
 import type { PRD, Section, Session, SessionSummary } from "@prd-assist/shared";
 import { SECTION_KEYS } from "@prd-assist/shared";

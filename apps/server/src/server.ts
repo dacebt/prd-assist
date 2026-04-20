@@ -41,9 +41,9 @@ export async function startServer(
     now: () => new Date(),
   });
 
-  return new Promise((resolve) => {
+  return await new Promise((resolve) => {
     const server = serve({ fetch: app.fetch, hostname: opts.hostname, port: opts.port }, (info) => {
-      console.log(`listening on ${info.address}:${info.port}`);
+      console.warn(`listening on ${info.address}:${info.port}`);
       resolve({
         port: info.port,
         async close() {

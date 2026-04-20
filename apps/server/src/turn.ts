@@ -97,7 +97,7 @@ export async function handleTurn(opts: {
     let termination: "final" | "iteration_cap" | "per_call_timeout" | "wall_clock" | "unexpected" =
       "unexpected";
 
-    loop: while (true) {
+    loop: for (;;) {
       if (now().getTime() - wallStart > config.wallClockMs) {
         termination = "wall_clock";
         break loop;
@@ -209,7 +209,7 @@ export async function handleTurn(opts: {
     store.persistAssistantMessage(session);
 
     const elapsedMs = now().getTime() - wallStart;
-    console.log(
+    console.warn(
       `turn ${sessionId.slice(0, 8)} termination=${termination} iterations=${iterationCount} elapsed_ms=${elapsedMs}`,
     );
 

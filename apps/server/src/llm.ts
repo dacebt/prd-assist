@@ -55,7 +55,7 @@ export function createOpenAiLlmClient({
       const response = await client.chat.completions.create(params, { signal });
 
       const message = response.choices[0]?.message;
-      if (message === undefined || message === null) {
+      if (message === undefined) {
         throw new LlmResponseShapeError("choices[0].message is missing");
       }
 
