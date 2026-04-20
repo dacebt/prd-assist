@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "turbo dev --filter=@prd-assist/server --filter=@prd-assist/web",
     "build": "turbo build",
-    "typecheck": "turbo typecheck",
+    "typecheck": "turbo typecheck && tsc --noEmit -p tsconfig.json",
     "test": "turbo test",
     "lint": "turbo lint && eslint scripts --max-warnings=0",
     "doc-edit-check": "tsx scripts/doc-edit-check.ts",

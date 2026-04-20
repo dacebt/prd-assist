@@ -119,6 +119,8 @@ Add:
 
 Change existing root `lint` script from the direct `eslint` invocation to `"lint": "turbo lint && eslint scripts --max-warnings=0"`. Turbo lints each workspace package; the trailing `eslint scripts` pass lints the root `scripts/` directory, which is not a workspace package and therefore not reachable via turbo.
 
+Change existing root `typecheck` script from `"turbo typecheck"` to `"turbo typecheck && tsc --noEmit -p tsconfig.json"`. Turbo typechecks each workspace package; the trailing `tsc` pass typechecks the root `tsconfig.json` (covering `scripts/`), which is not a workspace package.
+
 ### Per-Package Lint Scripts
 
 Each of the following `package.json` files gains a `"lint": "eslint src --max-warnings=0"` script:
@@ -133,7 +135,9 @@ Each of the following `package.json` files gains a `"lint": "eslint src --max-wa
 The base must be the single source of shared compiler options. After the change, the file contains:
 
 - Existing: `target: "ES2022"`, `strict: true`, `noUncheckedIndexedAccess: true`, `exactOptionalPropertyTypes: true`, `allowImportingTsExtensions: false`, `resolveJsonModule: true`, `esModuleInterop: true`, `forceConsistentCasingInFileNames: true`, `skipLibCheck: true`.
-- Added: `module: "ES2022"`, `moduleResolution: "bundler"`, `noEmit: true`, `rootDir: "src"`, `noImplicitReturns: true`, `noFallthroughCasesInSwitch: true`, `noImplicitOverride: true`, `isolatedModules: true`, `verbatimModuleSyntax: true`, `allowUnreachableCode: false`, `allowUnusedLabels: false`.
+- Added: `module: "ES2022"`, `moduleResolution: "bundler"`, `noEmit: true`, `rootDir: "${configDir}/src"`, `noImplicitReturns: true`, `noFallthroughCasesInSwitch: true`, `noImplicitOverride: true`, `isolatedModules: true`, `verbatimModuleSyntax: true`, `allowUnreachableCode: false`, `allowUnusedLabels: false`.
+
+  `rootDir` uses the TypeScript 5.5+ `${configDir}` template so each extending per-package config resolves `rootDir` relative to its own location. A literal `"src"` in the base would resolve against the base's own directory (repo root), which is not a parent of any package `src/`.
 
 ### TypeScript Per-Package Configuration
 
@@ -146,7 +150,7 @@ After consolidation, each per-package `tsconfig.json` only declares options that
 
 ### Root TypeScript Configuration (`tsconfig.json`)
 
-Must extend `tsconfig.base.json`. Declares only: `types: ["node"]` and `include: ["scripts/**/*.ts"]`. `jsx` is removed — it does not apply to `scripts/`.
+Must extend `tsconfig.base.json`. Declares `rootDir: "${configDir}"`, `types: ["node"]`, and `include: ["scripts/**/*.ts"]`. `jsx` is removed — it does not apply to `scripts/`. The `rootDir` override resolves to the repo root because (a) the inherited base value `"${configDir}/src"` resolves to `<repo>/src` at the root config location, which does not exist, and (b) `scripts/doc-edit-check.ts` legitimately imports from `apps/server/src/*` (integration harness), so `rootDir` must span both directories — repo root is the common ancestor.
 
 ### Formatting Sweep
 
@@ -388,6 +392,24 @@ Report completion with: what was built, what was verified, what Verification Sce
 - **Runnable target**: composed product — `pnpm test`.
 
 ## Adaptation Log
+
+### 2026-04-20 — Slice 4 final: root tsconfig rootDir override + typecheck pipeline coverage
+
+- **Trigger**: Rival final checkpoint flagged that the root `tsconfig.json`, after extending base, inherits `rootDir: "${configDir}/src"` which resolves to `<repo>/src` at the root location. Directly invoking `tsc -p tsconfig.json` fails with TS6059 on `scripts/doc-edit-check.ts`. The verification pipeline (`pnpm typecheck` → `turbo typecheck`) only reaches workspace packages, so the broken root config was silent.
+- **Conflict with spec**: Original Slice 4 wording required root tsconfig to declare only `types` and `include`. That leaves the inherited broken `rootDir`. It also leaves `scripts/` typechecking unexercised by any verification command — a coverage gap that parallels Slice 2's `scripts/` lint gap.
+- **Decision**: (a) Root `tsconfig.json` adds a `rootDir: "${configDir}"` override (repo root). First attempt used `"${configDir}/scripts"` but that broke `scripts/doc-edit-check.ts`'s legitimate imports from `apps/server/src/*` (integration harness). Repo root is the common ancestor that spans both. (b) Root `typecheck` script extended to `"turbo typecheck && tsc --noEmit -p tsconfig.json"`, mirroring Slice 2's lint pattern so the regression can't re-occur silently.
+- **Alternatives considered**: (a) Remove `rootDir` from base entirely — weakens the per-package scope guard for workspace packages. (b) Leave the root tsconfig broken and skip adding typecheck coverage — violates spec intent of tightening correctness. (c) `rootDir: "${configDir}/scripts"` — rejected empirically; script legitimately imports across package boundaries.
+- **Spec sections updated**: Requirements §Root TypeScript Configuration, Requirements §Root Scripts.
+- **Slices affected**: Slice 4 only.
+
+### 2026-04-20 — Slice 4: `rootDir` must use `${configDir}` template
+
+- **Trigger**: Worker implementing Slice 4 found that placing `rootDir: "src"` in `tsconfig.base.json` resolves to `<repo>/src` (relative to the base's own location), which is not a parent of any package's `src/`. `pnpm typecheck` fails with TS6059 across every package.
+- **Conflict with spec**: Original spec wording `rootDir: "src"` in base, omitted from per-package configs, is functionally broken under TypeScript's `rootDir` resolution semantics.
+- **Decision**: Use `rootDir: "${configDir}/src"` in base. TS 5.5+ `${configDir}` template resolves against the extending config's directory at each per-package config, giving each package a correct `rootDir: <pkg>/src` while keeping the declaration in the base only. Project uses TypeScript 5.9.3; the feature is stable.
+- **Alternatives considered**: (a) Drop `rootDir` from base entirely — simpler but weakens the per-package source-scope guard; `include: ["src"]` alone does not prevent cross-package relative imports. (b) Declare `rootDir: "src"` in both base and every per-package config — contradicts "per-package only declares what differs from base."
+- **Spec sections updated**: Requirements §TypeScript Base Configuration.
+- **Slices affected**: Slice 4 only.
 
 ### 2026-04-20 — Slice 2: preserve `scripts/` lint coverage
 
