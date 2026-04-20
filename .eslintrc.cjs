@@ -27,6 +27,21 @@ module.exports = {
     "@typescript-eslint/prefer-optional-chain": "error",
     eqeqeq: ["error", "always"],
     "no-console": ["warn", { allow: ["warn", "error"] }],
+    "max-lines": ["error", { max: 300, skipBlankLines: true, skipComments: true }],
+    "max-lines-per-function": [
+      "error",
+      { max: 50, skipBlankLines: true, skipComments: true, IIFEs: true },
+    ],
+    complexity: ["error", 10],
+    "@typescript-eslint/consistent-type-assertions": [
+      "error",
+      { assertionStyle: "as", objectLiteralTypeAssertions: "never" },
+    ],
+    "@typescript-eslint/no-unsafe-argument": "error",
+    "@typescript-eslint/no-unsafe-assignment": "error",
+    "@typescript-eslint/no-unsafe-call": "error",
+    "@typescript-eslint/no-unsafe-member-access": "error",
+    "@typescript-eslint/no-unsafe-return": "error",
   },
   overrides: [
     {
@@ -41,6 +56,7 @@ module.exports = {
       files: ["scripts/**/*.ts", "**/*.test.ts", "**/*.test.tsx"],
       rules: {
         "no-console": "off",
+        "max-lines-per-function": "off",
       },
     },
   ],

@@ -393,6 +393,16 @@ Report completion with: what was built, what was verified, what Verification Sce
 
 ## Adaptation Log
 
+### 2026-04-20 — Post-Slice-4: mechanize system-rules §6 (scope miss)
+
+- **Trigger**: After Slice 4 completion, user surfaced that the spec's framing was "tighten defaults" when the actual intent was "turn agent discipline from system-rules into tool-enforced rules." The rule set shipped catches async bugs and type laundering but misses the concrete discipline from system-rules §6 Strictness: file size cap (300 lines), function size cap, complexity cap, unsafe-cast bans, `unknown` escape-hatch coverage.
+- **Conflict with spec**: The original Rejected Alternatives section includes entries explaining why `strict-boolean-expressions` and `noPropertyAccessFromIndexSignature` were cut for churn reasons. Those rejections stand. But size/complexity/unsafe-cast rules were never considered at all — they were invisible to the spec because the spec wasn't derived from system-rules in the first place.
+- **Decision**: Add to `.eslintrc.cjs` top-level rules: `max-lines: 300` (skipBlank, skipComments), `max-lines-per-function: 50` (skipBlank, skipComments, IIFEs), `complexity: 10`, `@typescript-eslint/consistent-type-assertions` (banning object-literal `as` casts), and the `no-unsafe-*` family (`no-unsafe-argument`, `no-unsafe-assignment`, `no-unsafe-call`, `no-unsafe-member-access`, `no-unsafe-return`). Add override relaxation: `max-lines-per-function: off` for `scripts/**`, `**/*.test.ts`, `**/*.test.tsx` (test `describe` blocks and script main bodies legitimately exceed 50 lines).
+- **Deferred**: Architecture/boundary enforcement (`eslint-plugin-boundaries` or `no-restricted-imports` matching system-rules §7 dependency direction) requires a per-package allow-list design pass and is out of scope for this adaptation. Tracked as a follow-up.
+- **Process deviation acknowledged**: The adaptation is landing as a config-only commit that will leave `pnpm lint` failing. This deviates from system-rules §8 "never accumulate failing states." User explicitly accepted this tradeoff — the fallout from `max-lines` / `no-unsafe-*` is expected to touch a non-trivial surface of application code, and a single post-config commit gives a clear baseline for working through violations as separate focused commits.
+- **Spec sections updated**: Rejected Alternatives (size/complexity rules no longer rejected).
+- **Slices affected**: New work. A post-adaptation "fix lint fallout" set of commits follows.
+
 ### 2026-04-20 — Slice 4 final: root tsconfig rootDir override + typecheck pipeline coverage
 
 - **Trigger**: Rival final checkpoint flagged that the root `tsconfig.json`, after extending base, inherits `rootDir: "${configDir}/src"` which resolves to `<repo>/src` at the root location. Directly invoking `tsc -p tsconfig.json` fails with TS6059 on `scripts/doc-edit-check.ts`. The verification pipeline (`pnpm typecheck` → `turbo typecheck`) only reaches workspace packages, so the broken root config was silent.
