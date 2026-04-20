@@ -1,7 +1,13 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { fetchSessions } from "../api";
 import type { SessionSummary } from "@prd-assist/shared";
+import NewSessionButton from "./NewSessionButton";
+
+type ListState =
+  | { status: "loading" }
+  | { status: "loaded"; sessions: SessionSummary[] }
+  | { status: "error"; message: string };
 
 function relativeTime(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -15,33 +21,93 @@ function relativeTime(iso: string): string {
   return `${diffDay}d ago`;
 }
 
-export default function SessionList() {
-  const [sessions, setSessions] = useState<SessionSummary[]>([]);
-  const navigate = useNavigate();
+function SessionRow({ s }: { s: SessionSummary }) {
+  return (
+    <li>
+      <Link
+        to={`/sessions/${s.id}`}
+        className="block px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
+      >
+        <p className="text-sm font-medium text-gray-800 truncate dark:text-gray-100">
+          {s.title || "(untitled)"}
+        </p>
+        <p className="text-xs text-gray-400 dark:text-gray-500">
+          {s.id.slice(-8)} · {relativeTime(s.updatedAt)}
+        </p>
+      </Link>
+    </li>
+  );
+}
 
-  useEffect(() => {
-    fetchSessions().then(setSessions).catch(console.error);
+function SessionErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="px-6 py-4">
+      <p className="text-sm text-red-500 dark:text-red-400">{message}</p>
+      <button
+        onClick={onRetry}
+        className="mt-2 text-sm text-gray-500 underline hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+      >
+        Retry
+      </button>
+    </div>
+  );
+}
+
+function SessionEmptyState() {
+  return (
+    <div className="px-6 py-4 space-y-3">
+      <p className="text-sm text-gray-500 dark:text-gray-400">
+        No sessions yet — create one to get started.
+      </p>
+      <NewSessionButton />
+    </div>
+  );
+}
+
+export default function SessionList() {
+  const [state, setState] = useState<ListState>({ status: "loading" });
+
+  const load = useCallback(() => {
+    setState({ status: "loading" });
+    fetchSessions()
+      .then((sessions) => setState({ status: "loaded", sessions }))
+      .catch((err: unknown) => {
+        const message = err instanceof Error ? err.message : "Unknown error";
+        setState({ status: "error", message });
+      });
   }, []);
 
-  if (sessions.length === 0) {
+  useEffect(() => {
+    load();
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") load();
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [load]);
+
+  if (state.status === "loading") {
     return (
-      <p className="text-sm text-gray-400 italic px-4 py-2 dark:text-gray-500">No sessions yet.</p>
+      <p className="text-sm text-gray-400 italic px-6 py-4 dark:text-gray-500">
+        Loading sessions…
+      </p>
     );
+  }
+
+  if (state.status === "error") {
+    return <SessionErrorState message={state.message} onRetry={load} />;
+  }
+
+  if (state.sessions.length === 0) {
+    return <SessionEmptyState />;
   }
 
   return (
     <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-      {sessions.map((s) => (
-        <li
-          key={s.id}
-          className="px-4 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
-          onClick={() => navigate(`/sessions/${s.id}`)}
-        >
-          <p className="text-sm font-medium text-gray-800 truncate dark:text-gray-100">
-            {s.title || "(untitled)"}
-          </p>
-          <p className="text-xs text-gray-400 dark:text-gray-500">{relativeTime(s.updatedAt)}</p>
-        </li>
+      {state.sessions.map((s) => (
+        <SessionRow key={s.id} s={s} />
       ))}
     </ul>
   );
