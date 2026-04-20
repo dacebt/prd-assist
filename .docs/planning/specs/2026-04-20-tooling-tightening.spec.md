@@ -117,7 +117,7 @@ Add:
 - `"format": "prettier --write ."`
 - `"format:check": "prettier --check ."`
 
-Change existing root `lint` script from the direct `eslint` invocation to `"lint": "turbo lint"`.
+Change existing root `lint` script from the direct `eslint` invocation to `"lint": "turbo lint && eslint scripts --max-warnings=0"`. Turbo lints each workspace package; the trailing `eslint scripts` pass lints the root `scripts/` directory, which is not a workspace package and therefore not reachable via turbo.
 
 ### Per-Package Lint Scripts
 
@@ -389,7 +389,14 @@ Report completion with: what was built, what was verified, what Verification Sce
 
 ## Adaptation Log
 
-<!-- Entries added during implementation only. -->
+### 2026-04-20 — Slice 2: preserve `scripts/` lint coverage
+
+- **Trigger**: Worker implementing Slice 2 surfaced that `turbo lint` only reaches workspace packages (`apps/*`, `packages/*`). The pre-slice root lint invocation explicitly included `'scripts/**/*.ts'`; replacing it with plain `turbo lint` silently dropped coverage of `scripts/doc-edit-check.ts`.
+- **Conflict with spec**: Slice 3 adds a `no-console` override for `scripts/**/*.ts`, which presumes `scripts/` is still linted. The original Slice 2 wording would have broken that presumption.
+- **Decision**: Change the root `lint` script to `"turbo lint && eslint scripts --max-warnings=0"`. Turbo runs per-package lint in parallel; the trailing eslint pass lints the non-workspace `scripts/` directory. Clear winner — minimal change, preserves coverage, keeps turbo parallelism for workspace code.
+- **Alternatives considered**: (a) Promote `scripts/` to a workspace package — over-engineered for one file. (b) Silently drop `scripts/` coverage — contradicts Slice 3 design.
+- **Spec sections updated**: Requirements §Root Scripts.
+- **Slices affected**: Slice 2 only. Slice 3's `scripts/**` override remains valid.
 
 ## Implementation Slices
 

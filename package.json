@@ -12,7 +12,7 @@
     "build": "turbo build",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
-    "lint": "eslint --no-error-on-unmatched-pattern 'apps/*/src/**/*.{ts,tsx}' 'packages/*/src/**/*.ts' 'scripts/**/*.ts'",
+    "lint": "turbo lint && eslint scripts --max-warnings=0",
     "doc-edit-check": "tsx scripts/doc-edit-check.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
