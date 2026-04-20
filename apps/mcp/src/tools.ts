@@ -47,98 +47,108 @@ function writePrd(db: Database.Database, sessionId: string, prd: PRD): void {
   );
 }
 
+function getPrd(db: Database.Database, args: GetPrdArgs): PRD | SessionNotFoundError {
+  return parsePrd(db, args.session_id);
+}
+
+function updateSection(
+  db: Database.Database,
+  args: UpdateSectionArgs,
+):
+  | Section
+  | UnknownSectionKeyError
+  | InvalidStatusError
+  | ContentTooLongError
+  | SectionConfirmedError
+  | SessionNotFoundError {
+  const keyResult = SectionKeySchema.safeParse(args.key);
+  if (!keyResult.success) {
+    return { error: "unknown_section_key", valid_keys: [...SECTION_KEYS_ARRAY] };
+  }
+
+  if (typeof args.content !== "string" || args.content.length > MAX_CONTENT_LENGTH) {
+    return { error: "content_too_long", max: MAX_CONTENT_LENGTH, got: args.content.length };
+  }
+
+  let validatedStatus: Section["status"] | undefined;
+  if (args.status !== undefined) {
+    const statusResult = SectionStatusSchema.safeParse(args.status);
+    if (!statusResult.success) {
+      return { error: "invalid_status", valid_statuses: ["empty", "draft", "confirmed"] };
+    }
+    validatedStatus = statusResult.data;
+  }
+
+  const prdOrError = parsePrd(db, args.session_id);
+  if ("error" in prdOrError) return prdOrError;
+  const prd = prdOrError;
+
+  const key = keyResult.data as SectionKey;
+  const section = prd[key];
+
+  if (section.status === "confirmed" && args.user_requested_revision !== true) {
+    return {
+      error: "section_confirmed",
+      key: args.key,
+      hint: "set user_requested_revision=true when the user has explicitly asked in this turn to revise this section",
+    };
+  }
+
+  const updatedSection: Section = {
+    content: args.content,
+    status: validatedStatus ?? "draft",
+    updatedAt: new Date().toISOString(),
+  };
+  prd[key] = updatedSection;
+  writePrd(db, args.session_id, prd);
+  return updatedSection;
+}
+
+function listEmptySections(
+  db: Database.Database,
+  args: ListEmptySectionsArgs,
+): SectionKey[] | SessionNotFoundError {
+  const prdOrError = parsePrd(db, args.session_id);
+  if ("error" in prdOrError) return prdOrError;
+  const prd = prdOrError;
+  return SECTION_KEYS.filter((k) => prd[k].status === "empty");
+}
+
+function markConfirmed(
+  db: Database.Database,
+  args: MarkConfirmedArgs,
+): Section | UnknownSectionKeyError | CannotConfirmEmptyError | SessionNotFoundError {
+  const keyResult = SectionKeySchema.safeParse(args.key);
+  if (!keyResult.success) {
+    return { error: "unknown_section_key", valid_keys: [...SECTION_KEYS_ARRAY] };
+  }
+
+  const prdOrError = parsePrd(db, args.session_id);
+  if ("error" in prdOrError) return prdOrError;
+  const prd = prdOrError;
+
+  const key = keyResult.data as SectionKey;
+  const section = prd[key];
+
+  if (section.content.trim().length === 0) {
+    return { error: "cannot_confirm_empty_section", key: args.key };
+  }
+
+  const updatedSection: Section = {
+    content: section.content,
+    status: "confirmed",
+    updatedAt: new Date().toISOString(),
+  };
+  prd[key] = updatedSection;
+  writePrd(db, args.session_id, prd);
+  return updatedSection;
+}
+
 export function createTools(db: Database.Database) {
-  function get_prd(args: GetPrdArgs): PRD | SessionNotFoundError {
-    return parsePrd(db, args.session_id);
-  }
-
-  function update_section(
-    args: UpdateSectionArgs,
-  ):
-    | Section
-    | UnknownSectionKeyError
-    | InvalidStatusError
-    | ContentTooLongError
-    | SectionConfirmedError
-    | SessionNotFoundError {
-    const keyResult = SectionKeySchema.safeParse(args.key);
-    if (!keyResult.success) {
-      return { error: "unknown_section_key", valid_keys: [...SECTION_KEYS_ARRAY] };
-    }
-
-    if (typeof args.content !== "string" || args.content.length > MAX_CONTENT_LENGTH) {
-      return { error: "content_too_long", max: MAX_CONTENT_LENGTH, got: args.content.length };
-    }
-
-    let validatedStatus: Section["status"] | undefined;
-    if (args.status !== undefined) {
-      const statusResult = SectionStatusSchema.safeParse(args.status);
-      if (!statusResult.success) {
-        return { error: "invalid_status", valid_statuses: ["empty", "draft", "confirmed"] };
-      }
-      validatedStatus = statusResult.data;
-    }
-
-    const prdOrError = parsePrd(db, args.session_id);
-    if ("error" in prdOrError) return prdOrError;
-    const prd = prdOrError;
-
-    const key = keyResult.data as SectionKey;
-    const section = prd[key];
-
-    if (section.status === "confirmed" && args.user_requested_revision !== true) {
-      return {
-        error: "section_confirmed",
-        key: args.key,
-        hint: "set user_requested_revision=true when the user has explicitly asked in this turn to revise this section",
-      };
-    }
-
-    const updatedSection: Section = {
-      content: args.content,
-      status: validatedStatus ?? "draft",
-      updatedAt: new Date().toISOString(),
-    };
-    prd[key] = updatedSection;
-    writePrd(db, args.session_id, prd);
-    return updatedSection;
-  }
-
-  function list_empty_sections(args: ListEmptySectionsArgs): SectionKey[] | SessionNotFoundError {
-    const prdOrError = parsePrd(db, args.session_id);
-    if ("error" in prdOrError) return prdOrError;
-    const prd = prdOrError;
-    return SECTION_KEYS.filter((k) => prd[k].status === "empty");
-  }
-
-  function mark_confirmed(
-    args: MarkConfirmedArgs,
-  ): Section | UnknownSectionKeyError | CannotConfirmEmptyError | SessionNotFoundError {
-    const keyResult = SectionKeySchema.safeParse(args.key);
-    if (!keyResult.success) {
-      return { error: "unknown_section_key", valid_keys: [...SECTION_KEYS_ARRAY] };
-    }
-
-    const prdOrError = parsePrd(db, args.session_id);
-    if ("error" in prdOrError) return prdOrError;
-    const prd = prdOrError;
-
-    const key = keyResult.data as SectionKey;
-    const section = prd[key];
-
-    if (section.content.trim().length === 0) {
-      return { error: "cannot_confirm_empty_section", key: args.key };
-    }
-
-    const updatedSection: Section = {
-      content: section.content,
-      status: "confirmed",
-      updatedAt: new Date().toISOString(),
-    };
-    prd[key] = updatedSection;
-    writePrd(db, args.session_id, prd);
-    return updatedSection;
-  }
-
-  return { get_prd, update_section, list_empty_sections, mark_confirmed };
+  return {
+    get_prd: (args: GetPrdArgs) => getPrd(db, args),
+    update_section: (args: UpdateSectionArgs) => updateSection(db, args),
+    list_empty_sections: (args: ListEmptySectionsArgs) => listEmptySections(db, args),
+    mark_confirmed: (args: MarkConfirmedArgs) => markConfirmed(db, args),
+  };
 }
