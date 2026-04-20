@@ -67,8 +67,8 @@ function SessionEmptyState() {
 export default function SessionList() {
   const [state, setState] = useState<ListState>({ status: "loading" });
 
-  const load = useCallback(() => {
-    setState({ status: "loading" });
+  const load = useCallback((mode: "initial" | "refresh") => {
+    if (mode === "initial") setState({ status: "loading" });
     fetchSessions()
       .then((sessions) => setState({ status: "loaded", sessions }))
       .catch((err: unknown) => {
@@ -78,9 +78,9 @@ export default function SessionList() {
   }, []);
 
   useEffect(() => {
-    load();
+    load("initial");
     function handleVisibilityChange() {
-      if (document.visibilityState === "visible") load();
+      if (document.visibilityState === "visible") load("refresh");
     }
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
@@ -97,7 +97,7 @@ export default function SessionList() {
   }
 
   if (state.status === "error") {
-    return <SessionErrorState message={state.message} onRetry={load} />;
+    return <SessionErrorState message={state.message} onRetry={() => load("initial")} />;
   }
 
   if (state.sessions.length === 0) {
