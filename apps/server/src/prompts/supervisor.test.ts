@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildSystemPrompt } from "./prompt";
+import { buildSupervisorPrompt } from "./supervisor";
 
 const RULE_1 =
   "1. Before calling `update_section` on any section, you must know the section's current content. Call `get_prd` as the first tool call of every turn if you do not already have fresh PRD content from a tool result in this turn.";
@@ -16,24 +16,24 @@ const RULE_4 =
 const RULE_5 =
   "5. Emit tool calls in the native OpenAI `tool_calls` format. Do not narrate tool calls as text in your assistant content.";
 
-describe("buildSystemPrompt", () => {
+describe("buildSupervisorPrompt", () => {
   it("contains rule 1 verbatim", () => {
-    expect(buildSystemPrompt()).toContain(RULE_1);
+    expect(buildSupervisorPrompt()).toContain(RULE_1);
   });
 
   it("contains rule 2 verbatim", () => {
-    expect(buildSystemPrompt()).toContain(RULE_2);
+    expect(buildSupervisorPrompt()).toContain(RULE_2);
   });
 
   it("contains rule 3 verbatim", () => {
-    expect(buildSystemPrompt()).toContain(RULE_3);
+    expect(buildSupervisorPrompt()).toContain(RULE_3);
   });
 
   it("contains rule 4 verbatim", () => {
-    expect(buildSystemPrompt()).toContain(RULE_4);
+    expect(buildSupervisorPrompt()).toContain(RULE_4);
   });
 
   it("contains rule 5 verbatim", () => {
-    expect(buildSystemPrompt()).toContain(RULE_5);
+    expect(buildSupervisorPrompt()).toContain(RULE_5);
   });
 });

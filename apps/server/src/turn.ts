@@ -3,7 +3,7 @@ import type { LlmClient, AssistantMessage, LlmToolDescriptor } from "./llm";
 import type { McpClient, McpToolDescriptor } from "./mcpClient";
 import { mcpToolsToOpenAi } from "./mcpClient";
 import type { SessionMutex } from "./mutex";
-import { buildSystemPrompt } from "./prompt";
+import { buildSupervisorPrompt } from "./prompts";
 import { deriveTitle } from "./deriveTitle";
 
 export type TurnDeps = {
@@ -210,7 +210,7 @@ export async function handleTurn(opts: {
     store.persistUserMessage(session);
 
     const mcpTools = await mcp.listTools();
-    const systemContent = `${buildSystemPrompt()}\n\nThe session_id for every MCP tool call in this session is: ${sessionId}`;
+    const systemContent = `${buildSupervisorPrompt()}\n\nThe session_id for every MCP tool call in this session is: ${sessionId}`;
     const workingMessages: WorkingMessage[] = [
       { role: "system", content: systemContent },
       ...session.messages,
