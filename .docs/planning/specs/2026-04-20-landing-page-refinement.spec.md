@@ -457,7 +457,11 @@ Report completion with: what was built, what was verified, what Verification Sce
 
 ## Adaptation Log
 
-(empty)
+### 2026-04-21 — Slice 2: drop "400 on invalid id" route-test case
+
+- **Trigger:** Worker discovered the spec's premise was wrong. `parseParam` (`apps/server/src/middleware/validate.ts`) returns `404 session_not_found` on schema failure, not `400`. And `IdParamSchema` only asserts `id` is a string — Hono's `:id` pattern already guarantees a non-empty string, so no URL shape reaches `parseParam` with a failing payload. The "400 on invalid id" case was unreachable from HTTP.
+- **Scope of change:** Slice 2 route tests cover only the two reachable cases — `204` on existing id and `204` on unknown id (idempotent). The Boundaries subsection referenced "Invalid id → 400 with the existing validator error shape"; that statement is incorrect and is superseded by the actual middleware contract (which returns 404).
+- **Effect on other slices:** None. The client (`api.ts`) treats any non-2xx as an error regardless of code, so the 404-vs-400 distinction is invisible downstream. The idempotent-delete behavior (user-observable) is unchanged.
 
 ## Implementation Slices
 

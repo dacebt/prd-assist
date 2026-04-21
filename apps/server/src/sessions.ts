@@ -19,6 +19,7 @@ export interface SessionStore {
   createSession(now: Date): Session;
   listSessions(): SessionSummary[];
   getSession(id: string): Session | null;
+  deleteSession(id: string): void;
   persistUserMessage(session: Session): void;
   persistAssistantMessage(session: Session): void;
 }
@@ -109,11 +110,13 @@ export function createSessionStore(db: Database.Database): SessionStore {
   const persistAssistantStmt = db.prepare(
     "UPDATE sessions SET messages_json = ?, updated_at = ? WHERE id = ?",
   );
+  const deleteStmt = db.prepare("DELETE FROM sessions WHERE id = ?");
 
   return {
     createSession: (now) => sessionCreate(insert, now),
     listSessions: () => sessionList(listStmt),
     getSession: (id) => sessionGet(getStmt, id),
+    deleteSession: (id) => { deleteStmt.run(id); },
     persistUserMessage: (session) => sessionPersistUser(persistUserStmt, session),
     persistAssistantMessage: (session) => sessionPersistAssistant(persistAssistantStmt, session),
   };

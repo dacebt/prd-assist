@@ -207,6 +207,35 @@ describe("POST /api/sessions/:id/messages", () => {
   });
 });
 
+describe("DELETE /api/sessions/:id", () => {
+  it("204 on existing id and session absent from list", async () => {
+    const { app } = buildApp();
+
+    const createRes = await app.fetch(
+      new Request("http://localhost/api/sessions", { method: "POST" }),
+    );
+    const { id } = await parseJson(createRes, z.object({ id: z.string() }));
+
+    const deleteRes = await app.fetch(
+      new Request(`http://localhost/api/sessions/${id}`, { method: "DELETE" }),
+    );
+    expect(deleteRes.status).toBe(204);
+    expect(await deleteRes.text()).toBe("");
+
+    const listRes = await app.fetch(new Request("http://localhost/api/sessions"));
+    const list = await parseJson(listRes, z.array(z.object({ id: z.string() })));
+    expect(list.some((s) => s.id === id)).toBe(false);
+  });
+
+  it("204 on unknown id (idempotent)", async () => {
+    const { app } = buildApp();
+    const res = await app.fetch(
+      new Request("http://localhost/api/sessions/no-such-id", { method: "DELETE" }),
+    );
+    expect(res.status).toBe(204);
+  });
+});
+
 describe("POST /api/sessions (title derivation)", () => {
   it("sets title from first user message", async () => {
     const { app, store } = buildApp();

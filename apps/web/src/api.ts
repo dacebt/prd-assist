@@ -22,6 +22,11 @@ export async function fetchSession(id: string): Promise<Session> {
   return SessionSchema.parse(await res.json());
 }
 
+export async function deleteSession(id: string): Promise<void> {
+  const res = await fetch(`/api/sessions/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`delete session failed: ${res.status}`);
+}
+
 const SendMessageResponseSchema = z.object({ reply: z.string() });
 
 const ErrorResponseSchema = z.object({

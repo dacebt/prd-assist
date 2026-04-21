@@ -21,4 +21,11 @@ export function register(app: Hono, deps: RouteDeps): void {
     }
     return c.json(session);
   });
+
+  app.delete("/api/sessions/:id", (c) => {
+    const parsed = parseParam(c, IdParamSchema);
+    if (!parsed.ok) return parsed.response;
+    deps.store.deleteSession(parsed.data.id);
+    return c.body(null, 204);
+  });
 }

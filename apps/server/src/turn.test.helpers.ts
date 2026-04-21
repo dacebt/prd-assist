@@ -30,6 +30,7 @@ export function makeStore(session: Session | null): SessionStore & {
     createSession: vi.fn(),
     listSessions: vi.fn(),
     getSession: (_id: string) => session,
+    deleteSession: vi.fn(),
     persistUserMessage(s: Session) {
       persistUserCalls.push({ ...s, messages: [...s.messages] });
     },

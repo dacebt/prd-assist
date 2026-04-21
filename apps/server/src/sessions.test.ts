@@ -86,6 +86,26 @@ describe("createSessionStore", () => {
     expect(summary?.exchangeCount).toBe(3);
   });
 
+  it("deleteSession removes existing row", () => {
+    const db = openDatabase(":memory:");
+    const store = createSessionStore(db);
+    const session = store.createSession(new Date("2026-03-01T00:00:00.000Z"));
+
+    store.deleteSession(session.id);
+
+    expect(store.getSession(session.id)).toBeNull();
+    expect(store.listSessions().some((s) => s.id === session.id)).toBe(false);
+  });
+
+  it("deleteSession on unknown id is no-op", () => {
+    const db = openDatabase(":memory:");
+    const store = createSessionStore(db);
+    store.createSession(new Date("2026-03-01T00:00:00.000Z"));
+
+    expect(() => store.deleteSession("no-such-id")).not.toThrow();
+    expect(store.listSessions()).toHaveLength(1);
+  });
+
   it("sectionsConfirmed counts sections with status confirmed", () => {
     const db = openDatabase(":memory:");
     const store = createSessionStore(db);
