@@ -96,6 +96,7 @@ function ConfirmCluster({
 }) {
   return (
     <div className={clusterBase}>
+      <span className="text-xs text-gray-600 dark:text-gray-300">Delete session?</span>
       <button
         type="button"
         disabled={isDeleting}
