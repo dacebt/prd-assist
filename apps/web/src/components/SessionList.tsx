@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchSessions } from "../api";
 import type { SessionSummary } from "@prd-assist/shared";
-import NewSessionButton from "./NewSessionButton";
 
 type ListState =
   | { status: "loading" }
@@ -55,12 +54,9 @@ function SessionErrorState({ message, onRetry }: { message: string; onRetry: () 
 
 function SessionEmptyState() {
   return (
-    <div className="px-6 py-4 space-y-3">
-      <p className="text-sm text-gray-500 dark:text-gray-400">
-        No sessions yet — create one to get started.
-      </p>
-      <NewSessionButton />
-    </div>
+    <p className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+      No sessions yet — use the New session button above to create one.
+    </p>
   );
 }
 
