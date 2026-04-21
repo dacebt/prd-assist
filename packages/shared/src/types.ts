@@ -37,5 +37,8 @@ export type Session = {
 export type SessionSummary = {
   id: string;
   title: string;
+  createdAt: string;
   updatedAt: string;
+  exchangeCount: number;
+  sectionsConfirmed: number;
 };

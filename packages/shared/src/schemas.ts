@@ -38,7 +38,10 @@ export const SessionSchema = z.object({
 export const SessionSummarySchema = z.object({
   id: z.string(),
   title: z.string(),
+  createdAt: z.string(),
   updatedAt: z.string(),
+  exchangeCount: z.number().int().nonnegative(),
+  sectionsConfirmed: z.number().int().nonnegative(),
 });
 
 export const SessionListSchema = z.array(SessionSummarySchema);

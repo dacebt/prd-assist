@@ -15,12 +15,6 @@ const SessionRowSchema = z.object({
   prd_json: z.string(),
 });
 
-const SessionSummaryRowSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  updated_at: z.string(),
-});
-
 export interface SessionStore {
   createSession(now: Date): Session;
   listSessions(): SessionSummary[];
@@ -45,11 +39,28 @@ function sessionCreate(insert: Stmt, now: Date): Session {
   return { id, title: "", createdAt: ts, updatedAt: ts, messages: [], prd };
 }
 
+function deriveExchangeCount(messagesJson: string): number {
+  const messages = MessagesSchema.parse(JSON.parse(messagesJson));
+  return messages.filter((m) => m.role === "user").length;
+}
+
+function deriveSectionsConfirmed(prdJson: string): number {
+  const prd = PrdSchema.parse(JSON.parse(prdJson));
+  return SECTION_KEYS.filter((key) => prd[key].status === "confirmed").length;
+}
+
 function sessionList(listStmt: Stmt): SessionSummary[] {
   const rows = listStmt.all();
   return rows.map((row) => {
-    const parsed = SessionSummaryRowSchema.parse(row);
-    return { id: parsed.id, title: parsed.title, updatedAt: parsed.updated_at };
+    const parsed = SessionRowSchema.parse(row);
+    return {
+      id: parsed.id,
+      title: parsed.title,
+      createdAt: parsed.created_at,
+      updatedAt: parsed.updated_at,
+      exchangeCount: deriveExchangeCount(parsed.messages_json),
+      sectionsConfirmed: deriveSectionsConfirmed(parsed.prd_json),
+    };
   });
 }
 
@@ -87,7 +98,7 @@ export function createSessionStore(db: Database.Database): SessionStore {
     "INSERT INTO sessions (id, title, created_at, updated_at, messages_json, prd_json) VALUES (?, ?, ?, ?, ?, ?)",
   );
   const listStmt = db.prepare(
-    "SELECT id, title, updated_at FROM sessions ORDER BY updated_at DESC",
+    "SELECT id, title, created_at, updated_at, messages_json, prd_json FROM sessions ORDER BY updated_at DESC",
   );
   const getStmt = db.prepare(
     "SELECT id, title, created_at, updated_at, messages_json, prd_json FROM sessions WHERE id = ?",
