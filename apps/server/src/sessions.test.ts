@@ -130,3 +130,28 @@ describe("createSessionStore", () => {
     expect(summary?.createdAt).toBe(ts);
   });
 });
+
+describe("persistSummary", () => {
+  it("round-trip: persisted summary is returned by getSession", () => {
+    const db = openDatabase(":memory:");
+    const store = createSessionStore(db);
+    const session = store.createSession(new Date("2026-01-01T00:00:00.000Z"));
+    const updatedAtBefore = session.updatedAt;
+
+    store.persistSummary(session.id, "hello world");
+
+    const retrieved = store.getSession(session.id);
+    expect(retrieved?.summary).toBe("hello world");
+    // persistSummary must not bump updated_at
+    expect(retrieved?.updatedAt).toBe(updatedAtBefore);
+  });
+
+  it("new session has null summary", () => {
+    const db = openDatabase(":memory:");
+    const store = createSessionStore(db);
+    const session = store.createSession(new Date("2026-01-01T00:00:00.000Z"));
+
+    const retrieved = store.getSession(session.id);
+    expect(retrieved?.summary).toBeNull();
+  });
+});

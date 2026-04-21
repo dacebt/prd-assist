@@ -477,7 +477,9 @@ Report completion with: what was built, what was verified, what Verification Sce
 
 ## Adaptation Log
 
-_Empty. Populated during work-mode if the spec needs updating._
+- **2026-04-21 — S2 slice — `schema_version` initial-row mechanism moved from DDL to `runMigrations`.** R1 prescribed `INSERT OR IGNORE INTO schema_version (id, version) VALUES (1, 0)` in the DDL block for idempotency. Initial implementation followed R1 but that made `runMigrations`'s row-existence check dead code (rival challenge 1). Refactored to a single source of truth: DDL only creates the table; `runMigrations` handles 0-row, 1-row, and >1-row cases explicitly (matches R3.1's behavior description). End-state idempotency is preserved — repeated `openDatabase` calls see `count === 1` after first run and skip the insert. No test change needed; all four migration scenarios still pass.
+
+- **2026-04-21 — S2 slice — `GET /api/sessions/:id` strips `summary` before response.** Coherence concern surfaced that `store.getSession` now returns `SessionWithSummary`, and `c.json(session)` leaked the `summary` field into the HTTP response — not part of the documented API contract, silently stripped by the client's Zod schema. Fixed in `apps/server/src/routes/sessions.ts`: destructure `summary` out of the response body before `c.json(publicSession)`. Added a boundary test in `routes.test.ts` asserting `summary` is not in the response body. No spec requirement changed; this is a boundary-discipline fix that the spec's "Out of Scope — Any frontend surfacing of the summary" line implicitly required.
 
 ## Implementation Slices
 

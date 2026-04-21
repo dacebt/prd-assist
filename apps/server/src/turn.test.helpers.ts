@@ -2,7 +2,7 @@ import { vi } from "vitest";
 import { type TurnDeps } from "./turn";
 import type { LlmClient, AssistantMessage } from "./llm";
 import type { McpClient, McpToolDescriptor } from "./mcpClient";
-import type { SessionStore } from "./sessions";
+import type { SessionStore, SessionWithSummary } from "./sessions";
 import { initialPrd } from "./sessions";
 import type { SessionMutex } from "./mutex";
 import type { Session } from "@prd-assist/shared";
@@ -26,16 +26,27 @@ export function makeSession(overrides: Partial<Session> = {}): Session {
   };
 }
 
-export function makeStore(session: Session | null): SessionStore & {
+export function makeStore(
+  session: Session | null,
+  opts: { summary?: string | null } = {},
+): SessionStore & {
   persistUserCalls: Session[];
   persistAssistantCalls: Session[];
+  persistSummaryCalls: Array<{ sessionId: string; summary: string }>;
 } {
   const persistUserCalls: Session[] = [];
   const persistAssistantCalls: Session[] = [];
+  const persistSummaryCalls: Array<{ sessionId: string; summary: string }> = [];
+
+  const sessionWithSummary: SessionWithSummary | null =
+    session === null
+      ? null
+      : { ...session, summary: opts.summary !== undefined ? opts.summary : null };
+
   return {
     createSession: vi.fn(),
     listSessions: vi.fn(),
-    getSession: (_id: string) => session,
+    getSession: (_id: string) => sessionWithSummary,
     deleteSession: vi.fn(),
     persistUserMessage(s: Session) {
       persistUserCalls.push({ ...s, messages: [...s.messages] });
@@ -43,8 +54,12 @@ export function makeStore(session: Session | null): SessionStore & {
     persistAssistantMessage(s: Session) {
       persistAssistantCalls.push({ ...s, messages: [...s.messages] });
     },
+    persistSummary(sessionId: string, summary: string) {
+      persistSummaryCalls.push({ sessionId, summary });
+    },
     persistUserCalls,
     persistAssistantCalls,
+    persistSummaryCalls,
   };
 }
 

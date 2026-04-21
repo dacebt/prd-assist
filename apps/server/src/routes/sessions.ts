@@ -19,7 +19,8 @@ export function register(app: Hono, deps: RouteDeps): void {
     if (session === null) {
       return c.json({ error: "session_not_found" }, 404);
     }
-    return c.json(session);
+    const { summary: _summary, ...publicSession } = session;
+    return c.json(publicSession);
   });
 
   app.delete("/api/sessions/:id", (c) => {

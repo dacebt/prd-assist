@@ -86,6 +86,18 @@ describe("GET /api/sessions/:id", () => {
     const body = await parseJson(res, z.object({ error: z.string() }));
     expect(body.error).toBe("session_not_found");
   });
+
+  it("does not expose prd_summary in the response body", async () => {
+    const { app, store } = buildApp();
+    const session = store.createSession(new Date());
+    store.persistSummary(session.id, "internal summary text");
+
+    const res = await app.fetch(new Request(`http://localhost/api/sessions/${session.id}`));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body).not.toHaveProperty("summary");
+    expect(body).not.toHaveProperty("prd_summary");
+  });
 });
 
 describe("POST /api/sessions/:id/messages", () => {

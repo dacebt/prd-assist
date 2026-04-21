@@ -4,9 +4,11 @@ import type { PRD, Section, Session, SessionSummary } from "@prd-assist/shared";
 import { SECTION_KEYS } from "@prd-assist/shared";
 import { ChatMessageSchema, PrdSchema } from "@prd-assist/shared/schemas";
 
+export type SessionWithSummary = Session & { summary: string | null };
+
 const MessagesSchema = z.array(ChatMessageSchema);
 
-const SessionRowSchema = z.object({
+const SessionListRowSchema = z.object({
   id: z.string(),
   title: z.string(),
   created_at: z.string(),
@@ -15,13 +17,24 @@ const SessionRowSchema = z.object({
   prd_json: z.string(),
 });
 
+const SessionGetRowSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  messages_json: z.string(),
+  prd_json: z.string(),
+  prd_summary: z.string().nullable(),
+});
+
 export interface SessionStore {
   createSession(now: Date): Session;
   listSessions(): SessionSummary[];
-  getSession(id: string): Session | null;
+  getSession(id: string): SessionWithSummary | null;
   deleteSession(id: string): void;
   persistUserMessage(session: Session): void;
   persistAssistantMessage(session: Session): void;
+  persistSummary(sessionId: string, summary: string): void;
 }
 
 export function initialPrd(now: Date): PRD {
@@ -53,7 +66,7 @@ function deriveSectionsConfirmed(prdJson: string): number {
 function sessionList(listStmt: Stmt): SessionSummary[] {
   const rows = listStmt.all();
   return rows.map((row) => {
-    const parsed = SessionRowSchema.parse(row);
+    const parsed = SessionListRowSchema.parse(row);
     return {
       id: parsed.id,
       title: parsed.title,
@@ -65,10 +78,10 @@ function sessionList(listStmt: Stmt): SessionSummary[] {
   });
 }
 
-function sessionGet(getStmt: Stmt, id: string): Session | null {
+function sessionGet(getStmt: Stmt, id: string): SessionWithSummary | null {
   const row = getStmt.get(id);
   if (row === undefined) return null;
-  const parsed = SessionRowSchema.parse(row);
+  const parsed = SessionGetRowSchema.parse(row);
   const messages = MessagesSchema.parse(JSON.parse(parsed.messages_json));
   const prd = PrdSchema.parse(JSON.parse(parsed.prd_json));
   return {
@@ -78,6 +91,7 @@ function sessionGet(getStmt: Stmt, id: string): Session | null {
     updatedAt: parsed.updated_at,
     messages,
     prd,
+    summary: parsed.prd_summary,
   };
 }
 
@@ -102,7 +116,7 @@ export function createSessionStore(db: Database.Database): SessionStore {
     "SELECT id, title, created_at, updated_at, messages_json, prd_json FROM sessions ORDER BY updated_at DESC",
   );
   const getStmt = db.prepare(
-    "SELECT id, title, created_at, updated_at, messages_json, prd_json FROM sessions WHERE id = ?",
+    "SELECT id, title, created_at, updated_at, messages_json, prd_json, prd_summary FROM sessions WHERE id = ?",
   );
   const persistUserStmt = db.prepare(
     "UPDATE sessions SET messages_json = ?, title = ?, updated_at = ? WHERE id = ?",
@@ -111,6 +125,9 @@ export function createSessionStore(db: Database.Database): SessionStore {
     "UPDATE sessions SET messages_json = ?, updated_at = ? WHERE id = ?",
   );
   const deleteStmt = db.prepare("DELETE FROM sessions WHERE id = ?");
+  const persistSummaryStmt = db.prepare(
+    "UPDATE sessions SET prd_summary = ? WHERE id = ?",
+  );
 
   return {
     createSession: (now) => sessionCreate(insert, now),
@@ -119,5 +136,6 @@ export function createSessionStore(db: Database.Database): SessionStore {
     deleteSession: (id) => { deleteStmt.run(id); },
     persistUserMessage: (session) => sessionPersistUser(persistUserStmt, session),
     persistAssistantMessage: (session) => sessionPersistAssistant(persistAssistantStmt, session),
+    persistSummary: (sessionId, summary) => { persistSummaryStmt.run(summary, sessionId); },
   };
 }

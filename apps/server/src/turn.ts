@@ -8,6 +8,7 @@ import { deriveTitle } from "./deriveTitle";
 import type { ModelConfig } from "./config";
 import { createBufferedSink } from "./stream";
 import type { StreamSink } from "./stream";
+import { regenerateSummary } from "./summaryAgent";
 
 export type TurnDeps = {
   store: SessionStore;
@@ -88,56 +89,56 @@ async function callModel(
   }
 }
 
+const PRD_MUTATING_TOOLS = new Set(["update_section", "mark_confirmed"]);
+
+async function invokeTool(
+  call: ToolCallEntry,
+  mcp: McpClient,
+  validToolNames: string[],
+): Promise<unknown> {
+  let parsedArgs: Record<string, unknown>;
+  try {
+    parsedArgs = JSON.parse(call.function.arguments) as Record<string, unknown>;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { error: "invalid_tool_arguments", message };
+  }
+
+  if (!validToolNames.includes(call.function.name)) {
+    return { error: "unknown_tool", name: call.function.name, valid_tools: validToolNames };
+  }
+
+  try {
+    return await mcp.callTool(call.function.name, parsedArgs);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { error: "tool_invocation_failed", name: call.function.name, message };
+  }
+}
+
 async function dispatchToolCalls(
   toolCalls: ToolCallEntry[],
   mcp: McpClient,
   mcpTools: McpToolDescriptor[],
   workingMessages: WorkingMessage[],
+  prdTouchedRef: { value: boolean },
 ): Promise<void> {
   const validToolNames = mcpTools.map((t) => t.name);
   for (const call of toolCalls) {
-    let toolResult: unknown;
-    let parsedArgs: Record<string, unknown>;
-
-    try {
-      parsedArgs = JSON.parse(call.function.arguments) as Record<string, unknown>;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      toolResult = { error: "invalid_tool_arguments", message };
-      workingMessages.push({
-        role: "tool",
-        tool_call_id: call.id,
-        content: JSON.stringify(toolResult),
-      });
-      continue;
+    const toolResult = await invokeTool(call, mcp, validToolNames);
+    workingMessages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(toolResult) });
+    if (
+      PRD_MUTATING_TOOLS.has(call.function.name) &&
+      toolResult !== null &&
+      typeof toolResult === "object" &&
+      !("error" in toolResult)
+    ) {
+      prdTouchedRef.value = true;
     }
-
-    if (!validToolNames.includes(call.function.name)) {
-      toolResult = { error: "unknown_tool", name: call.function.name, valid_tools: validToolNames };
-      workingMessages.push({
-        role: "tool",
-        tool_call_id: call.id,
-        content: JSON.stringify(toolResult),
-      });
-      continue;
-    }
-
-    try {
-      toolResult = await mcp.callTool(call.function.name, parsedArgs);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      toolResult = { error: "tool_invocation_failed", name: call.function.name, message };
-    }
-
-    workingMessages.push({
-      role: "tool",
-      tool_call_id: call.id,
-      content: JSON.stringify(toolResult),
-    });
   }
 }
 
-type LoopResult = { termination: Termination; wallStart: number };
+type LoopResult = { termination: Termination; wallStart: number; prdTouched: boolean };
 
 async function runToolCallLoop(
   llm: LlmClient,
@@ -151,15 +152,16 @@ async function runToolCallLoop(
   const tools = mcpToolsToOpenAi(mcpTools);
   const wallStart = now().getTime();
   let iterationCount = 0;
+  const prdTouchedRef = { value: false };
 
   for (;;) {
     if (now().getTime() - wallStart > config.wallClockMs) {
       sink({ kind: "final", content: WALL_CLOCK_MESSAGE, at: now().toISOString() });
-      return { termination: "wall_clock", wallStart };
+      return { termination: "wall_clock", wallStart, prdTouched: prdTouchedRef.value };
     }
     if (iterationCount >= config.maxIterations) {
       sink({ kind: "final", content: ITERATION_CAP_MESSAGE, at: now().toISOString() });
-      return { termination: "iteration_cap", wallStart };
+      return { termination: "iteration_cap", wallStart, prdTouched: prdTouchedRef.value };
     }
 
     iterationCount++;
@@ -168,29 +170,43 @@ async function runToolCallLoop(
     if (modelResult.outcome === "terminated") {
       const msg = terminationMessage(modelResult.termination);
       sink({ kind: "final", content: msg, at: now().toISOString() });
-      return { termination: modelResult.termination, wallStart };
+      return { termination: modelResult.termination, wallStart, prdTouched: prdTouchedRef.value };
     }
 
     const { reply } = modelResult;
-    workingMessages.push({
-      role: "assistant",
-      content: reply.content,
-      tool_calls: reply.tool_calls,
-    });
+    workingMessages.push({ role: "assistant", content: reply.content, tool_calls: reply.tool_calls });
 
     if (reply.tool_calls !== undefined && reply.tool_calls.length > 0) {
-      await dispatchToolCalls(reply.tool_calls, mcp, mcpTools, workingMessages);
+      await dispatchToolCalls(reply.tool_calls, mcp, mcpTools, workingMessages, prdTouchedRef);
       continue;
     }
 
     if (typeof reply.content === "string") {
       sink({ kind: "final", content: reply.content, at: now().toISOString() });
-      return { termination: "final", wallStart };
+      return { termination: "final", wallStart, prdTouched: prdTouchedRef.value };
     }
 
     console.error("LLM returned neither tool_calls nor string content");
     sink({ kind: "final", content: UNEXPECTED_ERROR_MESSAGE, at: now().toISOString() });
-    return { termination: "unexpected", wallStart };
+    return { termination: "unexpected", wallStart, prdTouched: prdTouchedRef.value };
+  }
+}
+
+async function maybePersistSummary(
+  sessionId: string,
+  store: SessionStore,
+  llm: LlmClient,
+  models: ModelConfig,
+): Promise<void> {
+  try {
+    const refreshed = store.getSession(sessionId);
+    if (refreshed !== null) {
+      const summary = await regenerateSummary({ llm, models, prd: refreshed.prd });
+      store.persistSummary(sessionId, summary);
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`summary regen failed: ${message}`);
   }
 }
 
@@ -219,7 +235,6 @@ export async function handleTurn(opts: {
     store.persistUserMessage(session);
 
     const buffered = createBufferedSink();
-
     const mcpTools = await mcp.listTools();
     const systemContent = `${buildSupervisorPrompt()}\n\nThe session_id for every MCP tool call in this session is: ${sessionId}`;
     const workingMessages: WorkingMessage[] = [
@@ -227,22 +242,19 @@ export async function handleTurn(opts: {
       ...session.messages,
     ];
 
-    const { termination, wallStart } = await runToolCallLoop(
-      llm,
-      mcp,
-      mcpTools,
-      config,
-      workingMessages,
-      now,
-      buffered.sink,
+    const { termination, wallStart, prdTouched } = await runToolCallLoop(
+      llm, mcp, mcpTools, config, workingMessages, now, buffered.sink,
     );
 
     const reply = buffered.getFinal() ?? UNEXPECTED_ERROR_MESSAGE;
-
     const replyTs = now().toISOString();
     session.messages.push({ role: "assistant", content: reply, at: replyTs });
     session.updatedAt = replyTs;
     store.persistAssistantMessage(session);
+
+    if (prdTouched) {
+      await maybePersistSummary(sessionId, store, llm, config.models);
+    }
 
     console.warn(
       `turn ${sessionId.slice(0, 8)} termination=${termination} elapsed_ms=${now().getTime() - wallStart}`,
