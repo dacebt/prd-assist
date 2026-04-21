@@ -448,6 +448,13 @@ Report completion with: what was built, what was verified, what Verification Sce
 
 - **2026-04-21 — Slice 1c — R9 `chatStreaming` body simplified.** The spec prescribed `async function* chatStreaming() { throw new NotImplementedError("chatStreaming"); yield undefined as never; }`. The `yield` line triggered TS7027 (unreachable code). Dropped the `yield`; `AsyncGenerator<T>` is natively assignable to `AsyncIterable<T>` without an explicit yield, so C3 is still satisfied. Added `// eslint-disable-next-line @typescript-eslint/require-await` above the function to silence `require-await` (no await is reachable before the throw). Runtime behavior unchanged — throws `NotImplementedError` before any network call. Affected: R9 prescribed code block only; no other slice is affected.
 
+## Followups
+
+Items accepted into S1 but flagged for removal before S1's work is considered finished by the user.
+
+- **`// eslint-disable-next-line @typescript-eslint/require-await` in `apps/server/src/llm.ts:60`** — remove when S6 implements the real `chatStreaming` body (it will contain `await` and satisfy the rule naturally).
+- **Two tests in `apps/server/src/llm.test.ts` for the spec's "one focused test" R9 requirement** — consolidate to a single test before S6 lands. Options: write a custom matcher asserting both instance type and exact message, or delete one of the two tests (the error-message assertion implies the throw; the instance-type assertion is more informative).
+
 ## Implementation Slices
 
 Three slices. Each slice leaves `pnpm typecheck && pnpm lint && pnpm test` green.
