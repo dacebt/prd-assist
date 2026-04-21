@@ -8,6 +8,7 @@ import {
   makeDefaultMcpClient,
   MOCK_GET_PRD_TOOL,
   MOCK_UPDATE_SECTION_TOOL,
+  stubChatStreaming,
 } from "./turn.test.helpers";
 
 describe("handleTurn — tool dispatch", () => {
@@ -55,7 +56,7 @@ describe("handleTurn — tool dispatch", () => {
         }
         return Promise.resolve({ role: "assistant", content: "Done! Vision updated." });
       },
-      chatStreaming: () => (async function* () {})(),
+      chatStreaming: stubChatStreaming,
     };
 
     const deps = makeDeps(session, llm, createSessionMutex(), mcp);
@@ -96,7 +97,7 @@ describe("handleTurn — tool dispatch", () => {
         }
         return Promise.resolve({ role: "assistant", content: "recovered" });
       },
-      chatStreaming: () => (async function* () {})(),
+      chatStreaming: stubChatStreaming,
     };
 
     const deps = makeDeps(session, llm, createSessionMutex(), mcp);
@@ -130,7 +131,7 @@ describe("handleTurn — tool dispatch", () => {
         }
         return Promise.resolve({ role: "assistant", content: "recovered from unknown tool" });
       },
-      chatStreaming: () => (async function* () {})(),
+      chatStreaming: stubChatStreaming,
     };
 
     const deps = makeDeps(session, llm, createSessionMutex(), mcp);
@@ -165,7 +166,7 @@ describe("handleTurn — tool dispatch", () => {
         }
         return Promise.resolve({ role: "assistant", content: "recovered from mcp error" });
       },
-      chatStreaming: () => (async function* () {})(),
+      chatStreaming: stubChatStreaming,
     };
 
     const deps = makeDeps(session, llm, createSessionMutex(), mcp);

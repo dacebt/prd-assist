@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { handleTurn, SessionBusyError, SessionNotFoundError } from "./turn";
 import type { LlmClient } from "./llm";
 import { createSessionMutex } from "./mutex";
-import { makeSession, makeLlmClient, makeDeps } from "./turn.test.helpers";
+import { makeSession, makeLlmClient, makeDeps, stubChatStreaming } from "./turn.test.helpers";
 
 describe("handleTurn", () => {
   it("happy path returns assistant content", async () => {
@@ -26,7 +26,7 @@ describe("handleTurn", () => {
         userPersistedBeforeLlm = deps.store.persistUserCalls.length > 0;
         return Promise.resolve({ role: "assistant", content: "ok" });
       },
-      chatStreaming: () => (async function* () {})(),
+      chatStreaming: stubChatStreaming,
     };
     const deps = makeDeps(session, llm);
 
@@ -39,7 +39,7 @@ describe("handleTurn", () => {
     const session = makeSession();
     const llm: LlmClient = {
       chat: () => Promise.reject(new Error("LLM exploded")),
-      chatStreaming: () => (async function* () {})(),
+      chatStreaming: stubChatStreaming,
     };
     const deps = makeDeps(session, llm);
 
@@ -60,7 +60,7 @@ describe("handleTurn", () => {
         if (!heldDuringTurn) mutex.release("test-session");
         return Promise.resolve({ role: "assistant", content: "ok" });
       },
-      chatStreaming: () => (async function* () {})(),
+      chatStreaming: stubChatStreaming,
     };
     const deps = makeDeps(session, llm, mutex);
 

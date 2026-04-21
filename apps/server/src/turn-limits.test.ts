@@ -7,6 +7,7 @@ import {
   makeDeps,
   makeDefaultMcpClient,
   MOCK_GET_PRD_TOOL,
+  stubChatStreaming,
 } from "./turn.test.helpers";
 
 describe("handleTurn — per-call timeout", () => {
@@ -23,7 +24,7 @@ describe("handleTurn — per-call timeout", () => {
             }
             signal?.addEventListener("abort", () => reject(signal.reason));
           }),
-        chatStreaming: () => (async function* () {})(),
+        chatStreaming: stubChatStreaming,
       },
       createSessionMutex(),
     );
@@ -59,7 +60,7 @@ describe("handleTurn — iteration cap", () => {
           ],
         });
       },
-      chatStreaming: () => (async function* () {})(),
+      chatStreaming: stubChatStreaming,
     };
 
     const deps = makeDeps(session, llm, createSessionMutex(), mcp);
@@ -94,7 +95,7 @@ describe("handleTurn — wall-clock timeout", () => {
           ],
         });
       },
-      chatStreaming: () => (async function* () {})(),
+      chatStreaming: stubChatStreaming,
     };
 
     const startMs = 1000;
@@ -119,7 +120,7 @@ describe("handleTurn — title derivation", () => {
     const session = makeSession();
     const deps = makeDeps(session, {
       chat: () => Promise.resolve({ role: "assistant", content: "ok" }),
-      chatStreaming: () => (async function* () {})(),
+      chatStreaming: stubChatStreaming,
     });
 
     await handleTurn({ sessionId: "test-session", userText: "Build me a PRD", deps });
@@ -131,7 +132,7 @@ describe("handleTurn — title derivation", () => {
     const session = makeSession({ title: "Already set" });
     const deps = makeDeps(session, {
       chat: () => Promise.resolve({ role: "assistant", content: "ok" }),
-      chatStreaming: () => (async function* () {})(),
+      chatStreaming: stubChatStreaming,
     });
 
     await handleTurn({ sessionId: "test-session", userText: "Second message", deps });

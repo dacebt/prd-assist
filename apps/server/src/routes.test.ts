@@ -7,12 +7,12 @@ import { registerRoutes, type RouteDeps } from "./routes/index";
 import { createSessionMutex } from "./mutex";
 import type { LlmClient } from "./llm";
 import type { McpClient } from "./mcpClient";
-import { TEST_MODEL_CONFIG } from "./turn.test.helpers";
+import { TEST_MODEL_CONFIG, stubChatStreaming } from "./turn.test.helpers";
 
 function makeStubLlm(reply: string = "stub reply"): LlmClient {
   return {
     chat: () => Promise.resolve({ role: "assistant", content: reply }),
-    chatStreaming: () => (async function* () {})(),
+    chatStreaming: stubChatStreaming,
   };
 }
 
@@ -187,7 +187,7 @@ describe("POST /api/sessions/:id/messages", () => {
         new Promise((resolve) => {
           resolveFirst = () => resolve({ role: "assistant", content: "done" });
         }),
-      chatStreaming: () => (async function* () {})(),
+      chatStreaming: stubChatStreaming,
     };
 
     const { app, store } = buildApp(slowLlm);

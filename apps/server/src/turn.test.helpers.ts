@@ -48,7 +48,7 @@ export function makeStore(session: Session | null): SessionStore & {
   };
 }
 
-function stubChatStreaming(): AsyncIterable<never> {
+export function stubChatStreaming(): AsyncIterable<never> {
   return (async function* () {})();
 }
 
