@@ -8,6 +8,7 @@ import { registerRoutes } from "./routes/index";
 import { createMcpClient } from "./mcpClient";
 import type { LlmClient } from "./llm";
 import type { SessionMutex } from "./mutex";
+import type { ModelConfig } from "./config";
 
 export interface ServerOptions {
   sqlitePath: string;
@@ -15,7 +16,7 @@ export interface ServerOptions {
   port: number;
   llm: LlmClient;
   mutex: SessionMutex;
-  model: string;
+  models: ModelConfig;
 }
 
 export async function startServer(
@@ -37,7 +38,7 @@ export async function startServer(
     llm: opts.llm,
     mcp,
     mutex: opts.mutex,
-    model: opts.model,
+    models: opts.models,
     now: () => new Date(),
   });
 

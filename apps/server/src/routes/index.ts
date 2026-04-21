@@ -4,7 +4,7 @@ import type { SessionStore } from "../sessions";
 import type { LlmClient } from "../llm";
 import type { McpClient } from "../mcpClient";
 import type { SessionMutex } from "../mutex";
-import { TURN_DEFAULTS, type TurnConfig } from "../config";
+import { TURN_DEFAULTS, type TurnConfig, type ModelConfig } from "../config";
 import { register as registerHealth } from "./health";
 import { register as registerSessions } from "./sessions";
 import { register as registerMessages } from "./messages";
@@ -14,9 +14,9 @@ export interface RouteDeps {
   llm: LlmClient;
   mcp: McpClient;
   mutex: SessionMutex;
-  model: string;
+  models: ModelConfig;
   now: () => Date;
-  turnConfig?: Omit<TurnConfig, "model">;
+  turnConfig?: Omit<TurnConfig, "models">;
 }
 
 export const IdParamSchema = z.object({

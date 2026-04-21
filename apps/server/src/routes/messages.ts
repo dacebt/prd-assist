@@ -17,14 +17,14 @@ const PostMessageBodySchema = z.object({
 
 const MAX_PAYLOAD_BYTES = 64 * 1024;
 
-export function register(app: Hono, deps: RouteDeps, turnConfig: Omit<TurnConfig, "model">): void {
+export function register(app: Hono, deps: RouteDeps, turnConfig: Omit<TurnConfig, "models">): void {
   const turnDeps: TurnDeps = {
     store: deps.store,
     llm: deps.llm,
     mcp: deps.mcp,
     mutex: deps.mutex,
     now: deps.now,
-    config: { model: deps.model, ...turnConfig },
+    config: { models: deps.models, ...turnConfig },
   };
 
   app.post("/api/sessions/:id/messages", async (c) => {

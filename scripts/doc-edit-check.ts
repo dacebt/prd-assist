@@ -2,11 +2,11 @@ import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { startServer } from "../apps/server/src/server";
 import { createOpenAiLlmClient } from "../apps/server/src/llm";
 import { createSessionMutex } from "../apps/server/src/mutex";
+import { buildModelConfigFromEnv } from "../apps/server/src/config";
 import type { PRD } from "@prd-assist/shared";
 
 const HARNESS_SQLITE = "./tmp/harness.sqlite";
 const LM_STUDIO_BASE_URL = process.env["LM_STUDIO_BASE_URL"] ?? "http://localhost:1234/v1";
-const LM_STUDIO_MODEL = process.env["LM_STUDIO_MODEL"] ?? "google/gemma-4-26b-a4b";
 const LM_STUDIO_UNREACHABLE =
   "LM Studio not reachable — start it and load the configured model before running this script.";
 
@@ -61,6 +61,7 @@ async function main(): Promise<void> {
 
   const llm = createOpenAiLlmClient({ baseURL: LM_STUDIO_BASE_URL, apiKey: "lm-studio" });
   const mutex = createSessionMutex();
+  const models = buildModelConfigFromEnv(process.env["LM_STUDIO_MODELS_OVERRIDE"]);
 
   let serverHandle: Awaited<ReturnType<typeof startServer>>;
   try {
@@ -70,7 +71,7 @@ async function main(): Promise<void> {
       port: 0,
       llm,
       mutex,
-      model: LM_STUDIO_MODEL,
+      models,
     });
   } catch (err) {
     console.error("Failed to start server:", err);

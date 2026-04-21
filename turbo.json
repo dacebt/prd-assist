@@ -9,7 +9,7 @@
         "MCP_ARGS",
         "SQLITE_PATH",
         "LM_STUDIO_BASE_URL",
-        "LM_STUDIO_MODEL"
+        "LM_STUDIO_MODELS_OVERRIDE"
       ]
     },
     "@prd-assist/server#dev": {
@@ -21,7 +21,7 @@
         "MCP_ARGS",
         "SQLITE_PATH",
         "LM_STUDIO_BASE_URL",
-        "LM_STUDIO_MODEL"
+        "LM_STUDIO_MODELS_OVERRIDE"
       ]
     },
     "build": {

@@ -7,6 +7,12 @@ import { initialPrd } from "./sessions";
 import type { SessionMutex } from "./mutex";
 import type { Session } from "@prd-assist/shared";
 import { createSessionMutex } from "./mutex";
+import { DEFAULT_MODEL_CONFIG, type ModelConfig } from "./config";
+
+export const TEST_MODEL_CONFIG: ModelConfig = {
+  ...DEFAULT_MODEL_CONFIG,
+  supervisor: { ...DEFAULT_MODEL_CONFIG.supervisor, model: "test-model" },
+};
 
 export function makeSession(overrides: Partial<Session> = {}): Session {
   return {
@@ -88,7 +94,7 @@ export function makeDeps(
     mutex,
     now: () => new Date("2026-01-01T10:00:00.000Z"),
     config: {
-      model: "test-model",
+      models: TEST_MODEL_CONFIG,
       maxIterations: 6,
       perCallTimeoutMs: 90_000,
       wallClockMs: 300_000,

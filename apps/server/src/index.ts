@@ -1,13 +1,14 @@
 import { startServer } from "./server";
 import { createOpenAiLlmClient } from "./llm";
 import { createSessionMutex } from "./mutex";
+import { buildModelConfigFromEnv } from "./config";
 
 const SHUTDOWN_TIMEOUT_MS = 3000;
 
 async function main(): Promise<void> {
   const sqlitePath = process.env["SQLITE_PATH"] ?? "./data/prd-assist.sqlite";
   const baseURL = process.env["LM_STUDIO_BASE_URL"] ?? "http://localhost:1234/v1";
-  const model = process.env["LM_STUDIO_MODEL"] ?? "google/gemma-4-26b-a4b";
+  const models = buildModelConfigFromEnv(process.env["LM_STUDIO_MODELS_OVERRIDE"]);
 
   const llm = createOpenAiLlmClient({ baseURL, apiKey: "lm-studio" });
   const mutex = createSessionMutex();
@@ -18,7 +19,7 @@ async function main(): Promise<void> {
     port: 5174,
     llm,
     mutex,
-    model,
+    models,
   });
 
   let shuttingDown = false;

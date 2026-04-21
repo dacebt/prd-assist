@@ -7,6 +7,7 @@ import { registerRoutes, type RouteDeps } from "./routes/index";
 import { createSessionMutex } from "./mutex";
 import type { LlmClient } from "./llm";
 import type { McpClient } from "./mcpClient";
+import { TEST_MODEL_CONFIG } from "./turn.test.helpers";
 
 function makeStubLlm(reply: string = "stub reply"): LlmClient {
   return {
@@ -31,7 +32,7 @@ function buildApp(llmOverride?: LlmClient) {
     llm: llmOverride ?? makeStubLlm(),
     mcp: makeStubMcp(),
     mutex: createSessionMutex(),
-    model: "test-model",
+    models: TEST_MODEL_CONFIG,
     now: () => new Date("2026-01-01T10:00:00.000Z"),
   };
   registerRoutes(app, deps);

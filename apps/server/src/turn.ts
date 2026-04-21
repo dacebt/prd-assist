@@ -5,6 +5,7 @@ import { mcpToolsToOpenAi } from "./mcpClient";
 import type { SessionMutex } from "./mutex";
 import { buildSupervisorPrompt } from "./prompts";
 import { deriveTitle } from "./deriveTitle";
+import type { ModelConfig } from "./config";
 
 export type TurnDeps = {
   store: SessionStore;
@@ -13,7 +14,7 @@ export type TurnDeps = {
   mutex: SessionMutex;
   now: () => Date;
   config: {
-    model: string;
+    models: ModelConfig;
     maxIterations: number;
     perCallTimeoutMs: number;
     wallClockMs: number;
@@ -74,7 +75,7 @@ async function callModel(
 ): Promise<ModelCallResult> {
   const signal = AbortSignal.timeout(config.perCallTimeoutMs);
   try {
-    const reply = await llm.chat({ model: config.model, messages: workingMessages, tools, signal });
+    const reply = await llm.chat({ model: config.models.supervisor.model, messages: workingMessages, tools, signal });
     return { outcome: "reply", reply };
   } catch (err) {
     if (signal.aborted) {
