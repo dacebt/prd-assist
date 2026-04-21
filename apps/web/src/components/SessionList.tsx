@@ -22,16 +22,19 @@ function relativeTime(iso: string): string {
 
 function SessionRow({ s }: { s: SessionSummary }) {
   return (
-    <li>
+    <li className="group relative">
       <Link
         to={`/sessions/${s.id}`}
         className="block px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
       >
-        <p className="text-sm font-medium text-gray-800 truncate dark:text-gray-100">
+        <p className="truncate pr-10 text-sm font-medium text-gray-800 dark:text-gray-100">
           {s.title || "(untitled)"}
         </p>
-        <p className="text-xs text-gray-400 dark:text-gray-500">
-          {s.id.slice(-8)} · {relativeTime(s.updatedAt)}
+        <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
+          {s.id.slice(-8)} · created {relativeTime(s.createdAt)} · updated {relativeTime(s.updatedAt)}
+        </p>
+        <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
+          {s.exchangeCount} exchanges · {s.sectionsConfirmed}/7 confirmed
         </p>
       </Link>
     </li>
