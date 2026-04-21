@@ -26,6 +26,7 @@ describe("handleTurn", () => {
         userPersistedBeforeLlm = deps.store.persistUserCalls.length > 0;
         return Promise.resolve({ role: "assistant", content: "ok" });
       },
+      chatStreaming: () => (async function* () {})(),
     };
     const deps = makeDeps(session, llm);
 
@@ -38,6 +39,7 @@ describe("handleTurn", () => {
     const session = makeSession();
     const llm: LlmClient = {
       chat: () => Promise.reject(new Error("LLM exploded")),
+      chatStreaming: () => (async function* () {})(),
     };
     const deps = makeDeps(session, llm);
 
@@ -58,6 +60,7 @@ describe("handleTurn", () => {
         if (!heldDuringTurn) mutex.release("test-session");
         return Promise.resolve({ role: "assistant", content: "ok" });
       },
+      chatStreaming: () => (async function* () {})(),
     };
     const deps = makeDeps(session, llm, mutex);
 

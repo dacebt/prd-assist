@@ -55,6 +55,7 @@ describe("handleTurn — tool dispatch", () => {
         }
         return Promise.resolve({ role: "assistant", content: "Done! Vision updated." });
       },
+      chatStreaming: () => (async function* () {})(),
     };
 
     const deps = makeDeps(session, llm, createSessionMutex(), mcp);
@@ -95,6 +96,7 @@ describe("handleTurn — tool dispatch", () => {
         }
         return Promise.resolve({ role: "assistant", content: "recovered" });
       },
+      chatStreaming: () => (async function* () {})(),
     };
 
     const deps = makeDeps(session, llm, createSessionMutex(), mcp);
@@ -128,6 +130,7 @@ describe("handleTurn — tool dispatch", () => {
         }
         return Promise.resolve({ role: "assistant", content: "recovered from unknown tool" });
       },
+      chatStreaming: () => (async function* () {})(),
     };
 
     const deps = makeDeps(session, llm, createSessionMutex(), mcp);
@@ -162,6 +165,7 @@ describe("handleTurn — tool dispatch", () => {
         }
         return Promise.resolve({ role: "assistant", content: "recovered from mcp error" });
       },
+      chatStreaming: () => (async function* () {})(),
     };
 
     const deps = makeDeps(session, llm, createSessionMutex(), mcp);

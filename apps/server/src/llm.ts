@@ -26,6 +26,19 @@ export interface LlmClient {
     tools?: LlmToolDescriptor[];
     signal?: AbortSignal;
   }): Promise<AssistantMessage>;
+  chatStreaming(args: {
+    model: string;
+    messages: unknown[];
+    tools?: LlmToolDescriptor[];
+    signal?: AbortSignal;
+  }): AsyncIterable<OpenAI.Chat.ChatCompletionChunk>;
+}
+
+export class NotImplementedError extends Error {
+  constructor(feature: string) {
+    super(`${feature} not implemented`);
+    this.name = "NotImplementedError";
+  }
 }
 
 export class LlmResponseShapeError extends Error {
@@ -44,7 +57,13 @@ export function createOpenAiLlmClient({
 }): LlmClient {
   const client = new OpenAI({ baseURL, apiKey });
 
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async function* chatStreaming(): AsyncGenerator<OpenAI.Chat.ChatCompletionChunk> {
+    throw new NotImplementedError("chatStreaming");
+  }
+
   return {
+    chatStreaming,
     async chat({ model, messages, tools, signal }) {
       const params: OpenAI.Chat.ChatCompletionCreateParamsNonStreaming = {
         model,

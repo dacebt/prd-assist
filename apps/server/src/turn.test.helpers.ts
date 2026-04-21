@@ -48,6 +48,10 @@ export function makeStore(session: Session | null): SessionStore & {
   };
 }
 
+function stubChatStreaming(): AsyncIterable<never> {
+  return (async function* () {})();
+}
+
 export function makeLlmClient(reply: string | (() => Promise<AssistantMessage>)): LlmClient {
   return {
     chat: () => {
@@ -56,6 +60,7 @@ export function makeLlmClient(reply: string | (() => Promise<AssistantMessage>))
       }
       return reply();
     },
+    chatStreaming: stubChatStreaming,
   };
 }
 

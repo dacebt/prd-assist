@@ -12,6 +12,7 @@ import { TEST_MODEL_CONFIG } from "./turn.test.helpers";
 function makeStubLlm(reply: string = "stub reply"): LlmClient {
   return {
     chat: () => Promise.resolve({ role: "assistant", content: reply }),
+    chatStreaming: () => (async function* () {})(),
   };
 }
 
@@ -186,6 +187,7 @@ describe("POST /api/sessions/:id/messages", () => {
         new Promise((resolve) => {
           resolveFirst = () => resolve({ role: "assistant", content: "done" });
         }),
+      chatStreaming: () => (async function* () {})(),
     };
 
     const { app, store } = buildApp(slowLlm);

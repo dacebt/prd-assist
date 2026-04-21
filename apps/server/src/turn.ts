@@ -6,6 +6,8 @@ import type { SessionMutex } from "./mutex";
 import { buildSupervisorPrompt } from "./prompts";
 import { deriveTitle } from "./deriveTitle";
 import type { ModelConfig } from "./config";
+import { createBufferedSink } from "./stream";
+import type { StreamSink } from "./stream";
 
 export type TurnDeps = {
   store: SessionStore;
@@ -135,7 +137,7 @@ async function dispatchToolCalls(
   }
 }
 
-type LoopResult = { termination: Termination; assistantContent: string; wallStart: number };
+type LoopResult = { termination: Termination; wallStart: number };
 
 async function runToolCallLoop(
   llm: LlmClient,
@@ -144,6 +146,7 @@ async function runToolCallLoop(
   config: TurnDeps["config"],
   workingMessages: WorkingMessage[],
   now: () => Date,
+  sink: StreamSink,
 ): Promise<LoopResult> {
   const tools = mcpToolsToOpenAi(mcpTools);
   const wallStart = now().getTime();
@@ -151,10 +154,12 @@ async function runToolCallLoop(
 
   for (;;) {
     if (now().getTime() - wallStart > config.wallClockMs) {
-      return { termination: "wall_clock", assistantContent: WALL_CLOCK_MESSAGE, wallStart };
+      sink({ kind: "final", content: WALL_CLOCK_MESSAGE, at: now().toISOString() });
+      return { termination: "wall_clock", wallStart };
     }
     if (iterationCount >= config.maxIterations) {
-      return { termination: "iteration_cap", assistantContent: ITERATION_CAP_MESSAGE, wallStart };
+      sink({ kind: "final", content: ITERATION_CAP_MESSAGE, at: now().toISOString() });
+      return { termination: "iteration_cap", wallStart };
     }
 
     iterationCount++;
@@ -162,7 +167,8 @@ async function runToolCallLoop(
 
     if (modelResult.outcome === "terminated") {
       const msg = terminationMessage(modelResult.termination);
-      return { termination: modelResult.termination, assistantContent: msg, wallStart };
+      sink({ kind: "final", content: msg, at: now().toISOString() });
+      return { termination: modelResult.termination, wallStart };
     }
 
     const { reply } = modelResult;
@@ -178,11 +184,13 @@ async function runToolCallLoop(
     }
 
     if (typeof reply.content === "string") {
-      return { termination: "final", assistantContent: reply.content, wallStart };
+      sink({ kind: "final", content: reply.content, at: now().toISOString() });
+      return { termination: "final", wallStart };
     }
 
     console.error("LLM returned neither tool_calls nor string content");
-    return { termination: "unexpected", assistantContent: UNEXPECTED_ERROR_MESSAGE, wallStart };
+    sink({ kind: "final", content: UNEXPECTED_ERROR_MESSAGE, at: now().toISOString() });
+    return { termination: "unexpected", wallStart };
   }
 }
 
@@ -210,6 +218,8 @@ export async function handleTurn(opts: {
     if (session.title === "") session.title = deriveTitle(userText);
     store.persistUserMessage(session);
 
+    const buffered = createBufferedSink();
+
     const mcpTools = await mcp.listTools();
     const systemContent = `${buildSupervisorPrompt()}\n\nThe session_id for every MCP tool call in this session is: ${sessionId}`;
     const workingMessages: WorkingMessage[] = [
@@ -217,17 +227,20 @@ export async function handleTurn(opts: {
       ...session.messages,
     ];
 
-    const { termination, assistantContent, wallStart } = await runToolCallLoop(
+    const { termination, wallStart } = await runToolCallLoop(
       llm,
       mcp,
       mcpTools,
       config,
       workingMessages,
       now,
+      buffered.sink,
     );
 
+    const reply = buffered.getFinal() ?? UNEXPECTED_ERROR_MESSAGE;
+
     const replyTs = now().toISOString();
-    session.messages.push({ role: "assistant", content: assistantContent, at: replyTs });
+    session.messages.push({ role: "assistant", content: reply, at: replyTs });
     session.updatedAt = replyTs;
     store.persistAssistantMessage(session);
 
@@ -235,7 +248,7 @@ export async function handleTurn(opts: {
       `turn ${sessionId.slice(0, 8)} termination=${termination} elapsed_ms=${now().getTime() - wallStart}`,
     );
 
-    return assistantContent;
+    return reply;
   } finally {
     mutex.release(sessionId);
   }
