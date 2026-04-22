@@ -9,6 +9,7 @@ import {
   MOCK_GET_PRD_TOOL,
   MOCK_UPDATE_SECTION_TOOL,
   stubChatStreaming,
+  stubOrchestratorReply,
 } from "./turn.test.helpers";
 
 describe("handleTurn — tool dispatch", () => {
@@ -25,7 +26,8 @@ describe("handleTurn — tool dispatch", () => {
     const llm: LlmClient = {
       chat: () => {
         callCount++;
-        if (callCount === 1) {
+        if (callCount === 1) return Promise.resolve(stubOrchestratorReply(true));
+        if (callCount === 2) {
           return Promise.resolve({
             role: "assistant",
             content: null,
@@ -38,7 +40,7 @@ describe("handleTurn — tool dispatch", () => {
             ],
           });
         }
-        if (callCount === 2) {
+        if (callCount === 3) {
           return Promise.resolve({
             role: "assistant",
             content: null,
@@ -82,7 +84,8 @@ describe("handleTurn — tool dispatch", () => {
     const llm: LlmClient = {
       chat: () => {
         callCount++;
-        if (callCount === 1) {
+        if (callCount === 1) return Promise.resolve(stubOrchestratorReply(false));
+        if (callCount === 2) {
           return Promise.resolve({
             role: "assistant",
             content: null,
@@ -116,7 +119,8 @@ describe("handleTurn — tool dispatch", () => {
     const llm: LlmClient = {
       chat: () => {
         callCount++;
-        if (callCount === 1) {
+        if (callCount === 1) return Promise.resolve(stubOrchestratorReply(false));
+        if (callCount === 2) {
           return Promise.resolve({
             role: "assistant",
             content: null,
@@ -151,7 +155,8 @@ describe("handleTurn — tool dispatch", () => {
     const llm: LlmClient = {
       chat: () => {
         callCount++;
-        if (callCount === 1) {
+        if (callCount === 1) return Promise.resolve(stubOrchestratorReply(false));
+        if (callCount === 2) {
           return Promise.resolve({
             role: "assistant",
             content: null,

@@ -100,6 +100,10 @@ export const MOCK_UPDATE_SECTION_TOOL: McpToolDescriptor = {
   inputSchema: { type: "object", properties: { session_id: { type: "string" } } },
 };
 
+export function stubOrchestratorReply(needsPrdWork: boolean): AssistantMessage {
+  return { role: "assistant", content: JSON.stringify({ needsPrdWork }) };
+}
+
 export function makeDeps(
   session: Session | null,
   llm: LlmClient,

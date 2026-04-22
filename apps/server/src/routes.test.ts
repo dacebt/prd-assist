@@ -7,11 +7,16 @@ import { registerRoutes, type RouteDeps } from "./routes/index";
 import { createSessionMutex } from "./mutex";
 import type { LlmClient } from "./llm";
 import type { McpClient } from "./mcpClient";
-import { TEST_MODEL_CONFIG, stubChatStreaming } from "./turn.test.helpers";
+import { TEST_MODEL_CONFIG, stubChatStreaming, stubOrchestratorReply } from "./turn.test.helpers";
 
 function makeStubLlm(reply: string = "stub reply"): LlmClient {
+  let calls = 0;
   return {
-    chat: () => Promise.resolve({ role: "assistant", content: reply }),
+    chat: () => {
+      calls++;
+      if (calls === 1) return Promise.resolve(stubOrchestratorReply(false));
+      return Promise.resolve({ role: "assistant", content: reply });
+    },
     chatStreaming: stubChatStreaming,
   };
 }
@@ -193,12 +198,16 @@ describe("POST /api/sessions/:id/messages", () => {
   });
 
   it("concurrent POST to same session returns 409 immediately", async () => {
-    let resolveFirst!: () => void;
+    let resolveSupervisor!: () => void;
+    let llmCalls = 0;
     const slowLlm: LlmClient = {
-      chat: () =>
-        new Promise((resolve) => {
-          resolveFirst = () => resolve({ role: "assistant", content: "done" });
-        }),
+      chat: () => {
+        llmCalls++;
+        if (llmCalls === 1) return Promise.resolve(stubOrchestratorReply(false));
+        return new Promise((resolve) => {
+          resolveSupervisor = () => resolve({ role: "assistant", content: "done" });
+        });
+      },
       chatStreaming: stubChatStreaming,
     };
 
@@ -216,7 +225,7 @@ describe("POST /api/sessions/:id/messages", () => {
     const secondBody = await parseJson(secondRes, z.object({ error: z.string() }));
     expect(secondBody.error).toBe("session_busy");
 
-    resolveFirst();
+    resolveSupervisor();
     const firstRes = await firstPromise;
     expect(firstRes.status).toBe(200);
   });

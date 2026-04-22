@@ -8,19 +8,21 @@ import {
   makeDefaultMcpClient,
   MOCK_UPDATE_SECTION_TOOL,
   stubChatStreaming,
+  stubOrchestratorReply,
 } from "./turn.test.helpers";
 
 describe("handleTurn — summary hook", () => {
   it("writes summary when update_section succeeds", async () => {
     const session = makeSession();
 
-    // Supervisor: call 1 → update_section tool call, call 2 → final text
-    // Summary agent: call 3 → returns "new summary"
+    // Orchestrator: call 1 / Supervisor: call 2 → update_section, call 3 → final text
+    // Summary agent: call 4 → returns "new summary"
     let callCount = 0;
     const llm: LlmClient = {
       chat: () => {
         callCount++;
-        if (callCount === 1) {
+        if (callCount === 1) return Promise.resolve(stubOrchestratorReply(true));
+        if (callCount === 2) {
           return Promise.resolve({
             role: "assistant",
             content: null,
@@ -36,10 +38,10 @@ describe("handleTurn — summary hook", () => {
             ],
           });
         }
-        if (callCount === 2) {
+        if (callCount === 3) {
           return Promise.resolve({ role: "assistant", content: "Done! Vision updated." });
         }
-        // call 3: summary agent
+        // call 4: summary agent
         return Promise.resolve({ role: "assistant", content: "new summary" });
       },
       chatStreaming: stubChatStreaming,
@@ -65,8 +67,13 @@ describe("handleTurn — summary hook", () => {
 
   it("does not write summary when turn has no tool calls", async () => {
     const session = makeSession();
+    let calls = 0;
     const llm: LlmClient = {
-      chat: () => Promise.resolve({ role: "assistant", content: "Just chatting." }),
+      chat: () => {
+        calls++;
+        if (calls === 1) return Promise.resolve(stubOrchestratorReply(false));
+        return Promise.resolve({ role: "assistant", content: "Just chatting." });
+      },
       chatStreaming: stubChatStreaming,
     };
 
@@ -85,7 +92,8 @@ describe("handleTurn — summary hook", () => {
     const llm: LlmClient = {
       chat: () => {
         callCount++;
-        if (callCount === 1) {
+        if (callCount === 1) return Promise.resolve(stubOrchestratorReply(true));
+        if (callCount === 2) {
           return Promise.resolve({
             role: "assistant",
             content: null,
@@ -125,7 +133,8 @@ describe("handleTurn — summary hook", () => {
     const llm: LlmClient = {
       chat: () => {
         callCount++;
-        if (callCount === 1) {
+        if (callCount === 1) return Promise.resolve(stubOrchestratorReply(true));
+        if (callCount === 2) {
           return Promise.resolve({
             role: "assistant",
             content: null,
@@ -141,7 +150,7 @@ describe("handleTurn — summary hook", () => {
             ],
           });
         }
-        if (callCount === 2) {
+        if (callCount === 3) {
           return Promise.resolve({ role: "assistant", content: "Vision confirmed." });
         }
         return Promise.resolve({ role: "assistant", content: "confirmed summary" });
@@ -175,7 +184,8 @@ describe("handleTurn — summary hook", () => {
     const llm: LlmClient = {
       chat: () => {
         callCount++;
-        if (callCount === 1) {
+        if (callCount === 1) return Promise.resolve(stubOrchestratorReply(true));
+        if (callCount === 2) {
           return Promise.resolve({
             role: "assistant",
             content: null,
@@ -191,10 +201,10 @@ describe("handleTurn — summary hook", () => {
             ],
           });
         }
-        if (callCount === 2) {
+        if (callCount === 3) {
           return Promise.resolve({ role: "assistant", content: "PRD updated." });
         }
-        // call 3: summary agent — throw
+        // call 4: summary agent — throw
         return Promise.reject(new Error("boom"));
       },
       chatStreaming: stubChatStreaming,

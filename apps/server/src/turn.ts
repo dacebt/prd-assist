@@ -1,4 +1,4 @@
-import type { SessionStore } from "./sessions";
+import type { SessionStore, SessionWithSummary } from "./sessions";
 import type { LlmClient, AssistantMessage, LlmToolDescriptor } from "./llm";
 import type { McpClient, McpToolDescriptor } from "./mcpClient";
 import { mcpToolsToOpenAi } from "./mcpClient";
@@ -9,6 +9,7 @@ import type { ModelConfig } from "./config";
 import { createBufferedSink } from "./stream";
 import type { StreamSink } from "./stream";
 import { regenerateSummary } from "./summaryAgent";
+import { classifyTurn } from "./orchestrator";
 
 export type TurnDeps = {
   store: SessionStore;
@@ -56,6 +57,8 @@ type WorkingMessage =
   | { role: "user"; content: string; at: string }
   | { role: "assistant"; content: string | null; tool_calls?: ToolCallEntry[] | undefined }
   | { role: "tool"; tool_call_id: string; content: string };
+
+type RouteDecision = "work" | "no_work";
 
 type Termination = "final" | "iteration_cap" | "per_call_timeout" | "wall_clock" | "unexpected";
 
@@ -192,6 +195,49 @@ async function runToolCallLoop(
   }
 }
 
+async function persistReplyAndSummary(
+  sessionId: string,
+  session: SessionWithSummary,
+  reply: string,
+  store: SessionStore,
+  llm: LlmClient,
+  config: TurnDeps["config"],
+  now: () => Date,
+  routed: RouteDecision,
+  termination: Termination,
+  wallStart: number,
+  prdTouched: boolean,
+): Promise<void> {
+  const replyTs = now().toISOString();
+  session.messages.push({ role: "assistant", content: reply, at: replyTs });
+  session.updatedAt = replyTs;
+  store.persistAssistantMessage(session);
+  if (prdTouched) {
+    await maybePersistSummary(sessionId, store, llm, config.models);
+  }
+  console.warn(
+    `turn ${sessionId.slice(0, 8)} termination=${termination} routed=${routed} elapsed_ms=${now().getTime() - wallStart}`,
+  );
+}
+
+async function runSupervisorStage(
+  sessionId: string,
+  session: SessionWithSummary,
+  llm: LlmClient,
+  mcp: McpClient,
+  config: TurnDeps["config"],
+  now: () => Date,
+  sink: StreamSink,
+): Promise<LoopResult> {
+  const mcpTools = await mcp.listTools();
+  const systemContent = `${buildSupervisorPrompt()}\n\nThe session_id for every MCP tool call in this session is: ${sessionId}`;
+  const workingMessages: WorkingMessage[] = [
+    { role: "system", content: systemContent },
+    ...session.messages,
+  ];
+  return await runToolCallLoop(llm, mcp, mcpTools, config, workingMessages, now, sink);
+}
+
 async function maybePersistSummary(
   sessionId: string,
   store: SessionStore,
@@ -235,31 +281,32 @@ export async function handleTurn(opts: {
     store.persistUserMessage(session);
 
     const buffered = createBufferedSink();
-    const mcpTools = await mcp.listTools();
-    const systemContent = `${buildSupervisorPrompt()}\n\nThe session_id for every MCP tool call in this session is: ${sessionId}`;
-    const workingMessages: WorkingMessage[] = [
-      { role: "system", content: systemContent },
-      ...session.messages,
-    ];
 
-    const { termination, wallStart, prdTouched } = await runToolCallLoop(
-      llm, mcp, mcpTools, config, workingMessages, now, buffered.sink,
+    const classification = await classifyTurn({
+      llm,
+      models: config.models,
+      prd: session.prd,
+      summary: session.summary,
+      recentMessages: session.messages.slice(-3),
+    });
+
+    buffered.sink({
+      kind: "thinking",
+      agentRole: "orchestrator",
+      content: `classified: needsPrdWork=${String(classification.needsPrdWork)}`,
+      at: now().toISOString(),
+    });
+
+    const routed: RouteDecision = classification.needsPrdWork ? "work" : "no_work";
+
+    const { termination, wallStart, prdTouched } = await runSupervisorStage(
+      sessionId, session, llm, mcp, config, now, buffered.sink,
     );
 
     const reply = buffered.getFinal() ?? UNEXPECTED_ERROR_MESSAGE;
-    const replyTs = now().toISOString();
-    session.messages.push({ role: "assistant", content: reply, at: replyTs });
-    session.updatedAt = replyTs;
-    store.persistAssistantMessage(session);
-
-    if (prdTouched) {
-      await maybePersistSummary(sessionId, store, llm, config.models);
-    }
-
-    console.warn(
-      `turn ${sessionId.slice(0, 8)} termination=${termination} elapsed_ms=${now().getTime() - wallStart}`,
+    await persistReplyAndSummary(
+      sessionId, session, reply, store, llm, config, now, routed, termination, wallStart, prdTouched,
     );
-
     return reply;
   } finally {
     mutex.release(sessionId);

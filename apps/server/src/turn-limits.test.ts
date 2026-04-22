@@ -8,22 +8,27 @@ import {
   makeDefaultMcpClient,
   MOCK_GET_PRD_TOOL,
   stubChatStreaming,
+  stubOrchestratorReply,
 } from "./turn.test.helpers";
 
 describe("handleTurn — per-call timeout", () => {
   it("returns per-call timeout message when signal aborts", async () => {
     const session = makeSession();
+    let calls = 0;
     const deps = makeDeps(
       session,
       {
-        chat: ({ signal }) =>
-          new Promise((_resolve, reject) => {
+        chat: ({ signal }) => {
+          calls++;
+          if (calls === 1) return Promise.resolve(stubOrchestratorReply(false));
+          return new Promise((_resolve, reject) => {
             if (signal?.aborted) {
               reject(signal.reason);
               return;
             }
             signal?.addEventListener("abort", () => reject(signal.reason));
-          }),
+          });
+        },
         chatStreaming: stubChatStreaming,
       },
       createSessionMutex(),
@@ -48,6 +53,7 @@ describe("handleTurn — iteration cap", () => {
     const llm: LlmClient = {
       chat: () => {
         callCount++;
+        if (callCount === 1) return Promise.resolve(stubOrchestratorReply(false));
         return Promise.resolve({
           role: "assistant",
           content: null,
@@ -81,14 +87,17 @@ describe("handleTurn — wall-clock timeout", () => {
     });
 
     let nowCallCount = 0;
+    let llmCallCount = 0;
     const llm: LlmClient = {
       chat: () => {
+        llmCallCount++;
+        if (llmCallCount === 1) return Promise.resolve(stubOrchestratorReply(false));
         return Promise.resolve({
           role: "assistant",
           content: null,
           tool_calls: [
             {
-              id: `call-${nowCallCount}`,
+              id: `call-${llmCallCount}`,
               type: "function",
               function: { name: "get_prd", arguments: '{"session_id":"test-session"}' },
             },
@@ -102,9 +111,9 @@ describe("handleTurn — wall-clock timeout", () => {
     const deps = makeDeps(session, llm, createSessionMutex(), mcp);
     deps.now = () => {
       nowCallCount++;
-      // First two calls (ts timestamp + wallStart) return start time.
-      // Third call onward (loop wall-clock checks) returns beyond cap.
-      if (nowCallCount <= 2) return new Date(startMs);
+      // Calls: (1) ts timestamp, (2) thinking event at:, (3) wallStart — all return start time.
+      // Fourth call onward (loop wall-clock checks) returns beyond cap.
+      if (nowCallCount <= 3) return new Date(startMs);
       return new Date(startMs + 300_001);
     };
     deps.config.wallClockMs = 300_000;
@@ -118,8 +127,13 @@ describe("handleTurn — wall-clock timeout", () => {
 describe("handleTurn — title derivation", () => {
   it("derives title from first user message", async () => {
     const session = makeSession();
+    let calls = 0;
     const deps = makeDeps(session, {
-      chat: () => Promise.resolve({ role: "assistant", content: "ok" }),
+      chat: () => {
+        calls++;
+        if (calls === 1) return Promise.resolve(stubOrchestratorReply(false));
+        return Promise.resolve({ role: "assistant", content: "ok" });
+      },
       chatStreaming: stubChatStreaming,
     });
 
@@ -130,8 +144,13 @@ describe("handleTurn — title derivation", () => {
 
   it("does not overwrite title on second message", async () => {
     const session = makeSession({ title: "Already set" });
+    let calls = 0;
     const deps = makeDeps(session, {
-      chat: () => Promise.resolve({ role: "assistant", content: "ok" }),
+      chat: () => {
+        calls++;
+        if (calls === 1) return Promise.resolve(stubOrchestratorReply(false));
+        return Promise.resolve({ role: "assistant", content: "ok" });
+      },
       chatStreaming: stubChatStreaming,
     });
 
