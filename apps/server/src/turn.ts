@@ -10,6 +10,7 @@ import { createBufferedSink } from "./stream";
 import type { StreamSink } from "./stream";
 import { regenerateSummary } from "./summaryAgent";
 import { classifyTurn } from "./orchestrator";
+import { runInterviewerBigStage } from "./interviewerBig";
 
 export type TurnDeps = {
   store: SessionStore;
@@ -60,7 +61,7 @@ type WorkingMessage =
 
 type RouteDecision = "work" | "no_work";
 
-type Termination = "final" | "iteration_cap" | "per_call_timeout" | "wall_clock" | "unexpected";
+export type Termination = "final" | "iteration_cap" | "per_call_timeout" | "wall_clock" | "unexpected";
 
 type ModelCallResult =
   | { outcome: "reply"; reply: AssistantMessage }
@@ -141,7 +142,7 @@ async function dispatchToolCalls(
   }
 }
 
-type LoopResult = { termination: Termination; wallStart: number; prdTouched: boolean };
+export type LoopResult = { termination: Termination; wallStart: number; prdTouched: boolean };
 
 async function runToolCallLoop(
   llm: LlmClient,
@@ -299,9 +300,16 @@ export async function handleTurn(opts: {
 
     const routed: RouteDecision = classification.needsPrdWork ? "work" : "no_work";
 
-    const { termination, wallStart, prdTouched } = await runSupervisorStage(
-      sessionId, session, llm, mcp, config, now, buffered.sink,
-    );
+    const { termination, wallStart, prdTouched } =
+      routed === "work"
+        ? await runSupervisorStage(sessionId, session, llm, mcp, config, now, buffered.sink)
+        : await runInterviewerBigStage({
+            session,
+            llm,
+            models: config.models,
+            now,
+            sink: buffered.sink,
+          });
 
     const reply = buffered.getFinal() ?? UNEXPECTED_ERROR_MESSAGE;
     await persistReplyAndSummary(

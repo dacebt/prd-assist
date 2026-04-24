@@ -84,7 +84,7 @@ describe("handleTurn — tool dispatch", () => {
     const llm: LlmClient = {
       chat: () => {
         callCount++;
-        if (callCount === 1) return Promise.resolve(stubOrchestratorReply(false));
+        if (callCount === 1) return Promise.resolve(stubOrchestratorReply(true));
         if (callCount === 2) {
           return Promise.resolve({
             role: "assistant",
@@ -119,7 +119,7 @@ describe("handleTurn — tool dispatch", () => {
     const llm: LlmClient = {
       chat: () => {
         callCount++;
-        if (callCount === 1) return Promise.resolve(stubOrchestratorReply(false));
+        if (callCount === 1) return Promise.resolve(stubOrchestratorReply(true));
         if (callCount === 2) {
           return Promise.resolve({
             role: "assistant",
@@ -155,7 +155,7 @@ describe("handleTurn — tool dispatch", () => {
     const llm: LlmClient = {
       chat: () => {
         callCount++;
-        if (callCount === 1) return Promise.resolve(stubOrchestratorReply(false));
+        if (callCount === 1) return Promise.resolve(stubOrchestratorReply(true));
         if (callCount === 2) {
           return Promise.resolve({
             role: "assistant",

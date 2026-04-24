@@ -20,7 +20,7 @@ describe("handleTurn — per-call timeout", () => {
       {
         chat: ({ signal }) => {
           calls++;
-          if (calls === 1) return Promise.resolve(stubOrchestratorReply(false));
+          if (calls === 1) return Promise.resolve(stubOrchestratorReply(true));
           return new Promise((_resolve, reject) => {
             if (signal?.aborted) {
               reject(signal.reason);
@@ -53,7 +53,7 @@ describe("handleTurn — iteration cap", () => {
     const llm: LlmClient = {
       chat: () => {
         callCount++;
-        if (callCount === 1) return Promise.resolve(stubOrchestratorReply(false));
+        if (callCount === 1) return Promise.resolve(stubOrchestratorReply(true));
         return Promise.resolve({
           role: "assistant",
           content: null,
@@ -91,7 +91,7 @@ describe("handleTurn — wall-clock timeout", () => {
     const llm: LlmClient = {
       chat: () => {
         llmCallCount++;
-        if (llmCallCount === 1) return Promise.resolve(stubOrchestratorReply(false));
+        if (llmCallCount === 1) return Promise.resolve(stubOrchestratorReply(true));
         return Promise.resolve({
           role: "assistant",
           content: null,
