@@ -1,16 +1,21 @@
 import { describe, it, expect } from "vitest";
-import { createBufferedSink } from "./stream";
+import type { StreamEvent } from "./stream";
 
-describe("createBufferedSink", () => {
-  it("buffers events in order and getFinal returns last final content", () => {
-    const buffered = createBufferedSink();
+describe("StreamEvent type", () => {
+  it("thinking event has required fields", () => {
+    const event: StreamEvent = {
+      kind: "thinking",
+      agentRole: "orchestrator",
+      content: "tick",
+      at: "2026-04-21T00:00:00Z",
+    };
+    expect(event.kind).toBe("thinking");
+    expect(event.agentRole).toBe("orchestrator");
+  });
 
-    buffered.sink({ kind: "thinking", agentRole: "orchestrator", content: "tick", at: "2026-04-21T00:00:00Z" });
-    buffered.sink({ kind: "final", content: "done", at: "2026-04-21T00:00:01Z" });
-
-    expect(buffered.events).toHaveLength(2);
-    expect(buffered.events[0]).toMatchObject({ kind: "thinking", content: "tick" });
-    expect(buffered.events[1]).toMatchObject({ kind: "final", content: "done" });
-    expect(buffered.getFinal()).toBe("done");
+  it("final event has required fields", () => {
+    const event: StreamEvent = { kind: "final", content: "done", at: "2026-04-21T00:00:01Z" };
+    expect(event.kind).toBe("final");
+    expect(event.content).toBe("done");
   });
 });

@@ -8,6 +8,7 @@ import type { SessionMutex } from "./mutex";
 import type { Session } from "@prd-assist/shared";
 import { createSessionMutex } from "./mutex";
 import { DEFAULT_MODEL_CONFIG, type ModelConfig } from "./config";
+import type { StreamEvent, StreamSink } from "./stream";
 
 export const TEST_MODEL_CONFIG: ModelConfig = { ...DEFAULT_MODEL_CONFIG };
 
@@ -121,4 +122,19 @@ export function makeDeps(
       wallClockMs: 300_000,
     },
   };
+}
+
+export function makeStubSink(): { sink: StreamSink; events: StreamEvent[]; getFinalContent: () => string } {
+  const events: StreamEvent[] = [];
+  const sink: StreamSink = (event) => {
+    events.push(event);
+  };
+  const getFinalContent = (): string => {
+    for (let i = events.length - 1; i >= 0; i--) {
+      const e = events[i];
+      if (e !== undefined && e.kind === "final") return e.content;
+    }
+    return "";
+  };
+  return { sink, events, getFinalContent };
 }

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Session } from "@prd-assist/shared";
 import { sendMessage } from "../api";
 import MessageBubble from "./MessageBubble";
+import ThinkingRow from "./ThinkingRow";
 
 interface Props {
   session: Session;
@@ -10,16 +11,25 @@ interface Props {
   onAfterSend: (optimistic: Session | undefined) => void;
 }
 
+interface ThinkingEntry {
+  agentRole: string;
+  content: string;
+}
+
 interface MessageListProps {
   messages: Session["messages"];
+  thinkingRows: ThinkingEntry[];
   bottomRef: React.RefObject<HTMLDivElement>;
 }
 
-function MessageList({ messages, bottomRef }: MessageListProps) {
+function MessageList({ messages, thinkingRows, bottomRef }: MessageListProps) {
   return (
     <div className="flex-1 overflow-y-auto p-4">
       {messages.map((msg) => (
         <MessageBubble key={msg.at} role={msg.role} content={msg.content} />
+      ))}
+      {thinkingRows.map((row, i) => (
+        <ThinkingRow key={i} agentRole={row.agentRole} />
       ))}
       <div ref={bottomRef} />
     </div>
@@ -69,30 +79,44 @@ function Composer({ text, error, inFlight, onTextChange, onSubmit }: ComposerPro
 export default function ChatPane({ session, inFlight, onBeforeSend, onAfterSend }: Props) {
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [thinkingRows, setThinkingRows] = useState<ThinkingEntry[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [session.messages]);
+  }, [session.messages, thinkingRows]);
 
   async function submit() {
     const trimmed = text.trim();
     if (!trimmed || inFlight) return;
     onBeforeSend();
     setError(null);
+    setText("");
+
+    let finalContent: string | null = null;
+
     try {
-      const reply = await sendMessage(session.id, trimmed);
-      setText("");
+      await sendMessage(session.id, trimmed, {
+        onThinking: ({ agentRole, content }) => {
+          setThinkingRows((rows) => [...rows, { agentRole, content }]);
+        },
+        onFinal: ({ content }) => {
+          finalContent = content;
+          setThinkingRows([]);
+        },
+      });
+
       const optimistic: Session = {
         ...session,
         messages: [
           ...session.messages,
           { role: "user", content: trimmed, at: new Date().toISOString() },
-          { role: "assistant", content: reply, at: new Date().toISOString() },
+          { role: "assistant", content: finalContent ?? "", at: new Date().toISOString() },
         ],
       };
       onAfterSend(optimistic);
     } catch (err) {
+      setThinkingRows([]);
       const msg = err instanceof Error ? err.message : "Unknown error";
       setError(`Send failed: ${msg}`);
       onAfterSend(undefined);
@@ -101,7 +125,7 @@ export default function ChatPane({ session, inFlight, onBeforeSend, onAfterSend 
 
   return (
     <div className="h-full w-full bg-white flex flex-col dark:bg-gray-900">
-      <MessageList messages={session.messages} bottomRef={bottomRef} />
+      <MessageList messages={session.messages} thinkingRows={thinkingRows} bottomRef={bottomRef} />
       <Composer
         text={text}
         error={error}

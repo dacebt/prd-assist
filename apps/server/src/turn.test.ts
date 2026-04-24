@@ -2,10 +2,10 @@ import { describe, it, expect } from "vitest";
 import { handleTurn, SessionBusyError, SessionNotFoundError } from "./turn";
 import type { LlmClient } from "./llm";
 import { createSessionMutex } from "./mutex";
-import { makeSession, makeLlmClient, makeDeps, stubChatStreaming, stubOrchestratorReply } from "./turn.test.helpers";
+import { makeSession, makeLlmClient, makeDeps, makeStubSink, stubChatStreaming, stubOrchestratorReply } from "./turn.test.helpers";
 
 describe("handleTurn", () => {
-  it("happy path returns assistant content", async () => {
+  it("happy path emits final event with assistant content", async () => {
     const session = makeSession();
     let calls = 0;
     const llm: LlmClient = {
@@ -17,14 +17,16 @@ describe("handleTurn", () => {
       chatStreaming: stubChatStreaming,
     };
     const deps = makeDeps(session, llm);
+    const { sink, getFinalContent } = makeStubSink();
 
-    const result = await handleTurn({
+    await handleTurn({
       sessionId: "test-session",
       userText: "hi",
       deps,
+      sink,
     });
 
-    expect(result).toBe("Hello from assistant");
+    expect(getFinalContent()).toBe("Hello from assistant");
   });
 
   it("persists user message before calling llm", async () => {
@@ -41,8 +43,9 @@ describe("handleTurn", () => {
       chatStreaming: stubChatStreaming,
     };
     const deps = makeDeps(session, llm);
+    const { sink } = makeStubSink();
 
-    await handleTurn({ sessionId: "test-session", userText: "hello", deps });
+    await handleTurn({ sessionId: "test-session", userText: "hello", deps, sink });
 
     expect(userPersistedBeforeLlm).toBe(true);
   });
@@ -59,8 +62,9 @@ describe("handleTurn", () => {
       chatStreaming: stubChatStreaming,
     };
     const deps = makeDeps(session, llm);
+    const { sink } = makeStubSink();
 
-    await handleTurn({ sessionId: "test-session", userText: "hello", deps });
+    await handleTurn({ sessionId: "test-session", userText: "hello", deps, sink });
 
     expect(deps.store.persistUserCalls.length).toBe(1);
     expect(deps.store.persistAssistantCalls.length).toBe(1);
@@ -83,8 +87,9 @@ describe("handleTurn", () => {
       chatStreaming: stubChatStreaming,
     };
     const deps = makeDeps(session, llm, mutex);
+    const { sink } = makeStubSink();
 
-    await handleTurn({ sessionId: "test-session", userText: "hello", deps });
+    await handleTurn({ sessionId: "test-session", userText: "hello", deps, sink });
 
     expect(heldDuringTurn).toBe(true);
     expect(mutex.tryAcquire("test-session")).toBe(true);
@@ -96,17 +101,19 @@ describe("handleTurn", () => {
     mutex.tryAcquire("test-session");
 
     const deps = makeDeps(session, makeLlmClient("ok"), mutex);
+    const { sink } = makeStubSink();
 
     await expect(
-      handleTurn({ sessionId: "test-session", userText: "hello", deps }),
+      handleTurn({ sessionId: "test-session", userText: "hello", deps, sink }),
     ).rejects.toThrow(SessionBusyError);
   });
 
   it("throws SessionNotFoundError for unknown session", async () => {
     const deps = makeDeps(null, makeLlmClient("ok"));
+    const { sink } = makeStubSink();
 
     await expect(
-      handleTurn({ sessionId: "test-session", userText: "hello", deps }),
+      handleTurn({ sessionId: "test-session", userText: "hello", deps, sink }),
     ).rejects.toThrow(SessionNotFoundError);
   });
 });

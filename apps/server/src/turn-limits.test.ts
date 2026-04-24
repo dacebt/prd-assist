@@ -6,6 +6,7 @@ import {
   makeSession,
   makeDeps,
   makeDefaultMcpClient,
+  makeStubSink,
   MOCK_GET_PRD_TOOL,
   stubChatStreaming,
   stubOrchestratorReply,
@@ -40,9 +41,10 @@ describe("handleTurn — per-call timeout", () => {
       plannerBig: { ...deps.config.models.plannerBig, perCallTimeoutMs: 50 },
     };
 
-    const result = await handleTurn({ sessionId: "test-session", userText: "hello", deps });
+    const { sink, getFinalContent } = makeStubSink();
+    await handleTurn({ sessionId: "test-session", userText: "hello", deps, sink });
 
-    expect(result).toBe("The model took too long to respond. Please try again.");
+    expect(getFinalContent()).toBe("The model took too long to respond. Please try again.");
   }, 5000);
 });
 
@@ -89,9 +91,10 @@ describe("handleTurn — iteration cap", () => {
       ...deps.config.models,
       worker: { ...deps.config.models.worker, maxIterations: 6 },
     };
-    const result = await handleTurn({ sessionId: "test-session", userText: "hi", deps });
+    const { sink, getFinalContent } = makeStubSink();
+    await handleTurn({ sessionId: "test-session", userText: "hi", deps, sink });
 
-    expect(result).toBe(
+    expect(getFinalContent()).toBe(
       "I hit a tool-call loop limit. Please rephrase your request or try a smaller step.",
     );
   });
@@ -152,9 +155,10 @@ describe("handleTurn — wall-clock timeout", () => {
     };
     deps.config.wallClockMs = 300_000;
 
-    const result = await handleTurn({ sessionId: "test-session", userText: "hi", deps });
+    const { sink, getFinalContent } = makeStubSink();
+    await handleTurn({ sessionId: "test-session", userText: "hi", deps, sink });
 
-    expect(result).toBe("I ran out of time on that turn. Please try again.");
+    expect(getFinalContent()).toBe("I ran out of time on that turn. Please try again.");
   });
 });
 
@@ -171,7 +175,8 @@ describe("handleTurn — title derivation", () => {
       chatStreaming: stubChatStreaming,
     });
 
-    await handleTurn({ sessionId: "test-session", userText: "Build me a PRD", deps });
+    const { sink } = makeStubSink();
+    await handleTurn({ sessionId: "test-session", userText: "Build me a PRD", deps, sink });
 
     expect(deps.store.persistUserCalls[0]?.title).toBe("Build me a PRD");
   });
@@ -188,7 +193,8 @@ describe("handleTurn — title derivation", () => {
       chatStreaming: stubChatStreaming,
     });
 
-    await handleTurn({ sessionId: "test-session", userText: "Second message", deps });
+    const { sink } = makeStubSink();
+    await handleTurn({ sessionId: "test-session", userText: "Second message", deps, sink });
 
     expect(deps.store.persistUserCalls[0]?.title).toBe("Already set");
   });

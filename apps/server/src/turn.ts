@@ -4,7 +4,6 @@ import type { McpClient } from "./mcpClient";
 import type { SessionMutex } from "./mutex";
 import { deriveTitle } from "./deriveTitle";
 import type { ModelConfig } from "./config";
-import { createBufferedSink } from "./stream";
 import type { StreamSink } from "./stream";
 import { regenerateSummary } from "./summaryAgent";
 import { classifyTurn } from "./orchestrator";
@@ -96,8 +95,9 @@ export async function handleTurn(opts: {
   sessionId: string;
   userText: string;
   deps: TurnDeps;
-}): Promise<string> {
-  const { sessionId, userText, deps } = opts;
+  sink: StreamSink;
+}): Promise<void> {
+  const { sessionId, userText, deps, sink } = opts;
   const { store, llm, mcp, mutex, now, config } = deps;
 
   if (!mutex.tryAcquire(sessionId)) {
@@ -116,7 +116,14 @@ export async function handleTurn(opts: {
     if (session.title === "") session.title = deriveTitle(userText);
     store.persistUserMessage(session);
 
-    const buffered = createBufferedSink();
+    // Capture the final content as it passes through so persistReplyAndSummary
+    // can receive it without requiring a buffered sink. A single-element array
+    // lets TypeScript track the value without narrowing it to a literal null.
+    const capturedFinal: string[] = [];
+    const wrappedSink: StreamSink = (event) => {
+      if (event.kind === "final") capturedFinal.push(event.content);
+      sink(event);
+    };
 
     const classification = await classifyTurn({
       llm,
@@ -126,7 +133,7 @@ export async function handleTurn(opts: {
       recentMessages: session.messages.slice(-3),
     });
 
-    buffered.sink({
+    wrappedSink({
       kind: "thinking",
       agentRole: "orchestrator",
       content: `classified: needsPrdWork=${String(classification.needsPrdWork)}`,
@@ -145,7 +152,7 @@ export async function handleTurn(opts: {
         llm,
         models: config.models,
         now,
-        sink: buffered.sink,
+        sink: wrappedSink,
       });
 
       if (plannerResult.termination !== "final") {
@@ -164,7 +171,7 @@ export async function handleTurn(opts: {
             models: config.models,
             wallClockMs: config.wallClockMs,
             now,
-            sink: buffered.sink,
+            sink: wrappedSink,
           });
 
           if (workerResult.prdTouched) {
@@ -189,7 +196,7 @@ export async function handleTurn(opts: {
             llm,
             models: config.models,
             now,
-            sink: buffered.sink,
+            sink: wrappedSink,
           });
           termination = smallResult.termination;
           wallStart = plannerResult.wallStart;
@@ -202,15 +209,14 @@ export async function handleTurn(opts: {
         llm,
         models: config.models,
         now,
-        sink: buffered.sink,
+        sink: wrappedSink,
       }));
     }
 
-    const reply = buffered.getFinal() ?? UNEXPECTED_ERROR_MESSAGE;
+    const reply = capturedFinal[0] ?? UNEXPECTED_ERROR_MESSAGE;
     await persistReplyAndSummary(
       sessionId, session, reply, store, llm, config, now, routed, termination, wallStart, prdTouched,
     );
-    return reply;
   } finally {
     mutex.release(sessionId);
   }

@@ -1,8 +1,9 @@
 import type { Hono } from "hono";
+import { streamSSE } from "hono/streaming";
 import { z } from "zod";
 import { parseBody, parseParam, rejectOversizedPayload } from "../middleware/validate";
-import { mapErrorToResponse } from "../middleware/errors";
 import { handleTurn, type TurnDeps } from "../turn";
+import type { StreamEvent } from "../stream";
 import type { TurnConfig } from "../config";
 import { IdParamSchema, type RouteDeps } from "./index";
 
@@ -37,15 +38,32 @@ export function register(app: Hono, deps: RouteDeps, turnConfig: Omit<TurnConfig
     const body = await parseBody(c, PostMessageBodySchema);
     if (!body.ok) return body.response;
 
-    try {
-      const reply = await handleTurn({
-        sessionId: param.data.id,
-        userText: body.data.text,
-        deps: turnDeps,
-      });
-      return c.json({ reply });
-    } catch (err) {
-      return mapErrorToResponse(c, err);
-    }
+    return streamSSE(c, async (stream) => {
+      try {
+        await handleTurn({
+          sessionId: param.data.id,
+          userText: body.data.text,
+          deps: turnDeps,
+          sink: (event: StreamEvent) => {
+            void stream.writeSSE({
+              event: event.kind,
+              data: JSON.stringify(event),
+            });
+          },
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unknown error";
+        const errorCode =
+          err instanceof Error && err.name === "SessionBusyError"
+            ? "session_busy"
+            : err instanceof Error && err.name === "SessionNotFoundError"
+              ? "session_not_found"
+              : "internal";
+        await stream.writeSSE({
+          event: "error",
+          data: JSON.stringify({ error: errorCode, message }),
+        });
+      }
+    });
   });
 }

@@ -6,6 +6,7 @@ import {
   makeSession,
   makeDeps,
   makeDefaultMcpClient,
+  makeStubSink,
   MOCK_GET_PRD_TOOL,
   MOCK_UPDATE_SECTION_TOOL,
   stubChatStreaming,
@@ -77,9 +78,10 @@ describe("handleTurn — tool dispatch", () => {
     };
 
     const deps = makeDeps(session, llm, createSessionMutex(), mcp);
-    const result = await handleTurn({ sessionId: "test-session", userText: "Set vision", deps });
+    const { sink, getFinalContent } = makeStubSink();
+    await handleTurn({ sessionId: "test-session", userText: "Set vision", deps, sink });
 
-    expect(result).toBe("Done! Vision updated.");
+    expect(getFinalContent()).toBe("Done! Vision updated.");
     expect(callToolSpy).toHaveBeenCalledTimes(2);
     expect(callToolSpy).toHaveBeenNthCalledWith(1, "get_prd", { session_id: "test-session" });
     expect(callToolSpy).toHaveBeenNthCalledWith(2, "update_section", {
@@ -133,9 +135,10 @@ describe("handleTurn — tool dispatch", () => {
     };
 
     const deps = makeDeps(session, llm, createSessionMutex(), mcp);
-    const result = await handleTurn({ sessionId: "test-session", userText: "hi", deps });
+    const { sink, getFinalContent } = makeStubSink();
+    await handleTurn({ sessionId: "test-session", userText: "hi", deps, sink });
 
-    expect(result).toBe("recovered");
+    expect(getFinalContent()).toBe("recovered");
   });
 
   it("handles unknown tool name from model", async () => {
@@ -182,9 +185,10 @@ describe("handleTurn — tool dispatch", () => {
     };
 
     const deps = makeDeps(session, llm, createSessionMutex(), mcp);
-    const result = await handleTurn({ sessionId: "test-session", userText: "hi", deps });
+    const { sink, getFinalContent } = makeStubSink();
+    await handleTurn({ sessionId: "test-session", userText: "hi", deps, sink });
 
-    expect(result).toBe("recovered from unknown tool");
+    expect(getFinalContent()).toBe("recovered from unknown tool");
   });
 
   it("handles MCP callTool throwing", async () => {
@@ -232,9 +236,10 @@ describe("handleTurn — tool dispatch", () => {
     };
 
     const deps = makeDeps(session, llm, createSessionMutex(), mcp);
-    const result = await handleTurn({ sessionId: "test-session", userText: "hi", deps });
+    const { sink, getFinalContent } = makeStubSink();
+    await handleTurn({ sessionId: "test-session", userText: "hi", deps, sink });
 
-    expect(result).toBe("recovered from mcp error");
+    expect(getFinalContent()).toBe("recovered from mcp error");
   });
 
   it("2-task planner: both workers run and both update_section calls fire", async () => {
@@ -316,9 +321,10 @@ describe("handleTurn — tool dispatch", () => {
     };
 
     const deps = makeDeps(session, llm, createSessionMutex(), mcp);
-    const result = await handleTurn({ sessionId: "test-session", userText: "Set vision and users", deps });
+    const { sink, getFinalContent } = makeStubSink();
+    await handleTurn({ sessionId: "test-session", userText: "Set vision and users", deps, sink });
 
-    expect(result).toBe("Both sections updated.");
+    expect(getFinalContent()).toBe("Both sections updated.");
     expect(callToolSpy).toHaveBeenCalledTimes(2);
     expect(callToolSpy).toHaveBeenNthCalledWith(1, "update_section", {
       session_id: "test-session",

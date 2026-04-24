@@ -6,6 +6,7 @@ import {
   makeSession,
   makeDeps,
   makeDefaultMcpClient,
+  makeStubSink,
   MOCK_UPDATE_SECTION_TOOL,
   stubChatStreaming,
   stubOrchestratorReply,
@@ -66,9 +67,10 @@ describe("handleTurn — summary hook", () => {
     });
 
     const deps = makeDeps(session, llm, createSessionMutex(), mcp);
-    const result = await handleTurn({ sessionId: "test-session", userText: "Set vision", deps });
+    const { sink, getFinalContent } = makeStubSink();
+    await handleTurn({ sessionId: "test-session", userText: "Set vision", deps, sink });
 
-    expect(result).toBe("Done! Vision updated.");
+    expect(getFinalContent()).toBe("Done! Vision updated.");
     expect(deps.store.persistSummaryCalls).toHaveLength(1);
     expect(deps.store.persistSummaryCalls[0]).toEqual({
       sessionId: "test-session",
@@ -90,9 +92,10 @@ describe("handleTurn — summary hook", () => {
     };
 
     const deps = makeDeps(session, llm);
-    const result = await handleTurn({ sessionId: "test-session", userText: "Hello", deps });
+    const { sink, getFinalContent } = makeStubSink();
+    await handleTurn({ sessionId: "test-session", userText: "Hello", deps, sink });
 
-    expect(result).toBe("Just chatting.");
+    expect(getFinalContent()).toBe("Just chatting.");
     expect(deps.store.persistSummaryCalls).toHaveLength(0);
     expect(deps.store.persistAssistantCalls).toHaveLength(1);
   });
@@ -146,9 +149,10 @@ describe("handleTurn — summary hook", () => {
     });
 
     const deps = makeDeps(session, llm, createSessionMutex(), mcp);
-    const result = await handleTurn({ sessionId: "test-session", userText: "Set vision", deps });
+    const { sink, getFinalContent } = makeStubSink();
+    await handleTurn({ sessionId: "test-session", userText: "Set vision", deps, sink });
 
-    expect(result).toBe("I could not update that section.");
+    expect(getFinalContent()).toBe("I could not update that section.");
     expect(deps.store.persistSummaryCalls).toHaveLength(0);
   });
 
@@ -208,9 +212,10 @@ describe("handleTurn — summary hook", () => {
     });
 
     const deps = makeDeps(session, llm, createSessionMutex(), mcp);
-    const result = await handleTurn({ sessionId: "test-session", userText: "Confirm vision", deps });
+    const { sink, getFinalContent } = makeStubSink();
+    await handleTurn({ sessionId: "test-session", userText: "Confirm vision", deps, sink });
 
-    expect(result).toBe("Vision confirmed.");
+    expect(getFinalContent()).toBe("Vision confirmed.");
     expect(deps.store.persistSummaryCalls).toHaveLength(1);
     expect(deps.store.persistSummaryCalls[0]).toEqual({
       sessionId: "test-session",
@@ -218,7 +223,7 @@ describe("handleTurn — summary hook", () => {
     });
   });
 
-  it("turn still returns reply when summary agent throws", async () => {
+  it("turn still returns final event when summary agent throws", async () => {
     const session = makeSession();
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
@@ -273,9 +278,10 @@ describe("handleTurn — summary hook", () => {
     });
 
     const deps = makeDeps(session, llm, createSessionMutex(), mcp);
-    const result = await handleTurn({ sessionId: "test-session", userText: "Set vision", deps });
+    const { sink, getFinalContent } = makeStubSink();
+    await handleTurn({ sessionId: "test-session", userText: "Set vision", deps, sink });
 
-    expect(result).toBe("PRD updated.");
+    expect(getFinalContent()).toBe("PRD updated.");
     expect(deps.store.persistAssistantCalls).toHaveLength(1);
     expect(deps.store.persistSummaryCalls).toHaveLength(0);
 
