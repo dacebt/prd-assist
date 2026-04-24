@@ -15,7 +15,7 @@ interface SessionContentProps {
   panel: PrdPanel;
   turnInFlight: boolean;
   onBeforeSend: () => void;
-  onAfterSend: (optimistic: Session | undefined) => void;
+  onAfterSend: () => void;
 }
 
 function SessionContent({

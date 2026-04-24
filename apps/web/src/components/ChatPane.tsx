@@ -8,7 +8,7 @@ interface Props {
   session: Session;
   inFlight: boolean;
   onBeforeSend: () => void;
-  onAfterSend: (optimistic: Session | undefined) => void;
+  onAfterSend: () => void;
 }
 
 interface ThinkingEntry {
@@ -91,33 +91,22 @@ export default function ChatPane({ session, inFlight, onBeforeSend, onAfterSend 
     setError(null);
     setText("");
 
-    let finalContent: string | null = null;
-
     try {
       await sendMessage(session.id, trimmed, {
         onThinking: ({ agentRole, content }) => {
           setCurrentThinking({ agentRole, content });
         },
-        onFinal: ({ content }) => {
-          finalContent = content;
+        onFinal: () => {
           setCurrentThinking(null);
         },
       });
 
-      const optimistic: Session = {
-        ...session,
-        messages: [
-          ...session.messages,
-          { role: "user", content: trimmed, at: new Date().toISOString() },
-          { role: "assistant", content: finalContent ?? "", at: new Date().toISOString() },
-        ],
-      };
-      onAfterSend(optimistic);
+      onAfterSend();
     } catch (err) {
       setCurrentThinking(null);
       const msg = err instanceof Error ? err.message : "Unknown error";
       setError(`Send failed: ${msg}`);
-      onAfterSend(undefined);
+      onAfterSend();
     }
   }
 

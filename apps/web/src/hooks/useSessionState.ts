@@ -12,7 +12,7 @@ interface SessionState {
   state: SessionLoadState;
   turnInFlight: boolean;
   handleBeforeSend: () => void;
-  handleAfterSend: (optimistic: Session | undefined) => void;
+  handleAfterSend: () => void;
 }
 
 /** Manages fetch, polling, and send-turn lifecycle for a single session. */
@@ -43,11 +43,8 @@ export function useSessionState(id: string | undefined): SessionState {
     setTurnInFlight(true);
   }
 
-  function handleAfterSend(optimistic: Session | undefined) {
-    // In-flight turn results are not preserved across back-navigation; re-entering
-    // the session triggers fetchSession-on-mount which reflects whatever the server has.
+  function handleAfterSend() {
     setTurnInFlight(false);
-    if (optimistic) setState({ status: "loaded", session: optimistic });
     if (id) {
       fetchSession(id)
         .then((fresh) => setState({ status: "loaded", session: fresh }))
