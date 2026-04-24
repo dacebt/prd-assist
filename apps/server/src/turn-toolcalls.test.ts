@@ -71,6 +71,13 @@ describe("handleTurn — tool dispatch", () => {
         if (callCount === 5) {
           return Promise.resolve({ role: "assistant", content: null });
         }
+        // plannerVerify: confirm the vision edit
+        if (callCount === 6) {
+          return Promise.resolve({
+            role: "assistant",
+            content: JSON.stringify({ confirmed: ["vision"], failed: [] }),
+          });
+        }
         // interviewerSmall: final reply
         return Promise.resolve({ role: "assistant", content: "Done! Vision updated." });
       },
@@ -314,6 +321,13 @@ describe("handleTurn — tool dispatch", () => {
         if (callCount === 6) {
           return Promise.resolve({ role: "assistant", content: null });
         }
+        // plannerVerify: confirm both edits
+        if (callCount === 7) {
+          return Promise.resolve({
+            role: "assistant",
+            content: JSON.stringify({ confirmed: ["vision", "targetUsers"], failed: [] }),
+          });
+        }
         // interviewerSmall
         return Promise.resolve({ role: "assistant", content: "Both sections updated." });
       },
@@ -336,5 +350,155 @@ describe("handleTurn — tool dispatch", () => {
       key: "targetUsers",
       content: "Users text",
     });
+  });
+
+  it("verify fail-closed: malformed verify JSON → interviewerSmall still runs with worker-derived tasks", async () => {
+    const session = makeSession();
+    const callToolSpy = vi.fn().mockResolvedValue({
+      key: "vision",
+      content: "A vision",
+      status: "draft",
+      updatedAt: "2026-01-01T00:00:00Z",
+    });
+
+    const mcp = makeDefaultMcpClient({
+      listTools: () => Promise.resolve([MOCK_UPDATE_SECTION_TOOL]),
+      callTool: callToolSpy,
+    });
+
+    // orchestrator(1) → plannerBig(2) → worker update_section(3) → worker done(4)
+    // → plannerVerify returns malformed JSON(5) → interviewerSmall(6)
+    let callCount = 0;
+    const llm: LlmClient = {
+      chat: () => {
+        callCount++;
+        if (callCount === 1) return Promise.resolve(stubOrchestratorReply(true));
+        if (callCount === 2) {
+          return Promise.resolve({
+            role: "assistant",
+            content: JSON.stringify({ tasks: [{ sectionKey: "vision", instruction: "Write vision" }] }),
+          });
+        }
+        if (callCount === 3) {
+          return Promise.resolve({
+            role: "assistant",
+            content: null,
+            tool_calls: [
+              {
+                id: "call-1",
+                type: "function",
+                function: {
+                  name: "update_section",
+                  arguments: '{"session_id":"test-session","key":"vision","content":"A vision"}',
+                },
+              },
+            ],
+          });
+        }
+        if (callCount === 4) {
+          return Promise.resolve({ role: "assistant", content: null });
+        }
+        // plannerVerify: first attempt returns malformed JSON
+        if (callCount === 5) {
+          return Promise.resolve({ role: "assistant", content: "not json at all" });
+        }
+        // plannerVerify: retry also returns malformed JSON → fail-closed
+        if (callCount === 6) {
+          return Promise.resolve({ role: "assistant", content: "{ also bad" });
+        }
+        // interviewerSmall: should still run with the worker-derived task (vision)
+        return Promise.resolve({ role: "assistant", content: "fallback reply" });
+      },
+      chatStreaming: stubChatStreaming,
+    };
+
+    const deps = makeDeps(session, llm, createSessionMutex(), mcp);
+    const { sink, getFinalContent } = makeStubSink();
+    await handleTurn({ sessionId: "test-session", userText: "Set vision", deps, sink });
+
+    // interviewerSmall ran and produced the final reply
+    expect(getFinalContent()).toBe("fallback reply");
+    // prd was touched by the worker
+    expect(callToolSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("verify rejects task: verify confirms nothing → interviewerSmall hears failedTasks, not executedTasks", async () => {
+    const session = makeSession();
+    const callToolSpy = vi.fn().mockResolvedValue({
+      key: "vision",
+      content: "A vision",
+      status: "draft",
+      updatedAt: "2026-01-01T00:00:00Z",
+    });
+
+    const mcp = makeDefaultMcpClient({
+      listTools: () => Promise.resolve([MOCK_UPDATE_SECTION_TOOL]),
+      callTool: callToolSpy,
+    });
+
+    // orchestrator(1) → plannerBig(2) → worker update_section(3) → worker done(4)
+    // → plannerVerify confirms nothing, fails vision(5) → interviewerSmall(6)
+    let callCount = 0;
+    let interviewerSmallMessages: unknown[] | null = null;
+    const llm: LlmClient = {
+      chat: (args) => {
+        callCount++;
+        if (callCount === 1) return Promise.resolve(stubOrchestratorReply(true));
+        if (callCount === 2) {
+          return Promise.resolve({
+            role: "assistant",
+            content: JSON.stringify({ tasks: [{ sectionKey: "vision", instruction: "Write vision" }] }),
+          });
+        }
+        if (callCount === 3) {
+          return Promise.resolve({
+            role: "assistant",
+            content: null,
+            tool_calls: [
+              {
+                id: "call-1",
+                type: "function",
+                function: {
+                  name: "update_section",
+                  arguments: '{"session_id":"test-session","key":"vision","content":"A vision"}',
+                },
+              },
+            ],
+          });
+        }
+        if (callCount === 4) {
+          return Promise.resolve({ role: "assistant", content: null });
+        }
+        // plannerVerify: confirms nothing, vision failed
+        if (callCount === 5) {
+          return Promise.resolve({
+            role: "assistant",
+            content: JSON.stringify({
+              confirmed: [],
+              failed: [{ sectionKey: "vision", reason: "content empty" }],
+            }),
+          });
+        }
+        // interviewerSmall: capture the messages passed to it
+        if (callCount === 6) {
+          interviewerSmallMessages = args.messages;
+          return Promise.resolve({ role: "assistant", content: "I could not update the vision — please clarify." });
+        }
+        // summary agent (prdTouched=true because worker mutated the PRD)
+        return Promise.resolve({ role: "assistant", content: "summary after failed verify" });
+      },
+      chatStreaming: stubChatStreaming,
+    };
+
+    const deps = makeDeps(session, llm, createSessionMutex(), mcp);
+    const { sink, getFinalContent } = makeStubSink();
+    await handleTurn({ sessionId: "test-session", userText: "Set vision", deps, sink });
+
+    expect(getFinalContent()).toBe("I could not update the vision — please clarify.");
+    // The interviewerSmall system message should mention the failed edit, not a confirmed edit
+    const systemMsg = interviewerSmallMessages?.[0] as { role: string; content: string } | undefined;
+    expect(systemMsg?.content).toContain("Failed edits this turn:");
+    expect(systemMsg?.content).toContain("vision");
+    expect(systemMsg?.content).not.toContain("Edited sections this turn:");
   });
 });

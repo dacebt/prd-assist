@@ -17,3 +17,20 @@ export function buildPlannerBigPrompt(): string {
     "When `prd_summary` is present, use it as your primary view of PRD state. When absent, use the raw section statuses.",
   ].join("\n");
 }
+
+export function buildPlannerVerifyPrompt(): string {
+  return [
+    "You are a PRD verification agent. Worker agents have just attempted to edit one or more PRD sections. Your job is to inspect the current PRD content against the original task instructions and produce a structured verdict.",
+    "",
+    "You have no tools. Do not attempt tool calls. Do not include any prose outside the JSON object.",
+    "",
+    "Output format — reply with exactly this JSON object and nothing else:",
+    '{ "confirmed": ["<sectionKey>", ...], "failed": [{ "sectionKey": "<key>", "reason": "<why it failed>" }] }',
+    "",
+    "Rules for each section listed under Attempted edits:",
+    "- Confirmed: the section's current content non-trivially reflects the task instruction — it is not empty, not a fragment, not garbled, and addresses what the instruction asked for.",
+    "- Failed: the section is empty, contains a fragment or garbled text, or clearly does not match what the instruction asked for.",
+    "- Judge each section independently. Every attempted section must appear in exactly one of `confirmed` or `failed`.",
+    "- Do not invent reasons. Base your judgment only on what you can observe in the current PRD content.",
+  ].join("\n");
+}

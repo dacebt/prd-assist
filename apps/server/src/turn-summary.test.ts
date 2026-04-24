@@ -51,8 +51,15 @@ describe("handleTurn — summary hook", () => {
         if (callCount === 4) {
           return Promise.resolve({ role: "assistant", content: null });
         }
-        // interviewerSmall
+        // plannerVerify: confirm the vision edit
         if (callCount === 5) {
+          return Promise.resolve({
+            role: "assistant",
+            content: JSON.stringify({ confirmed: ["vision"], failed: [] }),
+          });
+        }
+        // interviewerSmall
+        if (callCount === 6) {
           return Promise.resolve({ role: "assistant", content: "Done! Vision updated." });
         }
         // summary agent
@@ -194,8 +201,15 @@ describe("handleTurn — summary hook", () => {
         if (callCount === 4) {
           return Promise.resolve({ role: "assistant", content: null });
         }
-        // interviewerSmall
+        // plannerVerify: confirm the vision edit
         if (callCount === 5) {
+          return Promise.resolve({
+            role: "assistant",
+            content: JSON.stringify({ confirmed: ["vision"], failed: [] }),
+          });
+        }
+        // interviewerSmall
+        if (callCount === 6) {
           return Promise.resolve({ role: "assistant", content: "Vision confirmed." });
         }
         // summary agent
@@ -262,8 +276,15 @@ describe("handleTurn — summary hook", () => {
         if (callCount === 4) {
           return Promise.resolve({ role: "assistant", content: null });
         }
-        // interviewerSmall
+        // plannerVerify: confirm the vision edit
         if (callCount === 5) {
+          return Promise.resolve({
+            role: "assistant",
+            content: JSON.stringify({ confirmed: ["vision"], failed: [] }),
+          });
+        }
+        // interviewerSmall
+        if (callCount === 6) {
           return Promise.resolve({ role: "assistant", content: "PRD updated." });
         }
         // summary agent — throw

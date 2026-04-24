@@ -13,19 +13,30 @@ type InterviewerSmallMessage =
   | { role: "user"; content: string }
   | { role: "assistant"; content: string };
 
-function buildTaskContext(executedTasks: PlannerTask[]): string {
-  if (executedTasks.length === 0) {
+type FailedTask = { sectionKey: string; reason: string };
+
+function buildTaskContext(executedTasks: PlannerTask[], failedTasks: FailedTask[]): string {
+  const parts: string[] = [];
+  if (executedTasks.length === 0 && failedTasks.length === 0) {
     return "No edits were made this turn.";
   }
-  const lines = executedTasks.map((t) => `- ${t.sectionKey}: ${t.instruction}`);
-  return `Edited sections this turn:\n${lines.join("\n")}`;
+  if (executedTasks.length > 0) {
+    const lines = executedTasks.map((t) => `- ${t.sectionKey}: ${t.instruction}`);
+    parts.push(`Edited sections this turn:\n${lines.join("\n")}`);
+  }
+  if (failedTasks.length > 0) {
+    const lines = failedTasks.map((t) => `- ${t.sectionKey}: ${t.reason}`);
+    parts.push(`Failed edits this turn:\n${lines.join("\n")}`);
+  }
+  return parts.join("\n\n");
 }
 
 function buildMessages(
   session: SessionWithSummary,
   executedTasks: PlannerTask[],
+  failedTasks: FailedTask[],
 ): InterviewerSmallMessage[] {
-  const taskContext = buildTaskContext(executedTasks);
+  const taskContext = buildTaskContext(executedTasks, failedTasks);
   const systemContent = `${buildInterviewerSmallPrompt()}\n\n${taskContext}`;
   const systemMessage: InterviewerSmallMessage = { role: "system", content: systemContent };
   const history: InterviewerSmallMessage[] = session.messages.map((m) => ({
@@ -38,12 +49,13 @@ function buildMessages(
 export async function runInterviewerSmallStage(opts: {
   session: SessionWithSummary;
   executedTasks: PlannerTask[];
+  failedTasks?: FailedTask[];
   llm: LlmClient;
   models: ModelConfig;
   now: () => Date;
   sink: StreamSink;
 }): Promise<LoopResult> {
-  const { session, executedTasks, llm, models, now, sink } = opts;
+  const { session, executedTasks, failedTasks = [], llm, models, now, sink } = opts;
   const wallStart = now().getTime();
 
   sink({
@@ -53,7 +65,7 @@ export async function runInterviewerSmallStage(opts: {
     at: now().toISOString(),
   });
 
-  const messages = buildMessages(session, executedTasks);
+  const messages = buildMessages(session, executedTasks, failedTasks);
 
   const signal = AbortSignal.timeout(models.interviewerSmall.perCallTimeoutMs);
   let termination: Termination;

@@ -8,7 +8,7 @@ import type { StreamSink } from "./stream";
 import { regenerateSummary } from "./summaryAgent";
 import { classifyTurn } from "./orchestrator";
 import { runInterviewerBigStage } from "./interviewerBig";
-import { runPlannerBigStage } from "./plannerBig";
+import { runPlannerBigStage, runPlannerVerifyStage } from "./plannerBig";
 import type { PlannerTask } from "./plannerBig";
 import { runWorkerStage } from "./workers";
 import { runInterviewerSmallStage } from "./interviewerSmall";
@@ -190,9 +190,29 @@ export async function handleTurn(opts: {
           wallStart = plannerResult.wallStart;
           prdTouched = executedTasks.length > 0;
         } else {
+          const freshSession = store.getSession(sessionId) ?? session;
+          const executedKeys = new Set(executedTasks.map((t) => t.sectionKey));
+
+          let confirmedTasks: PlannerTask[] = executedTasks;
+          let failedTasks: Array<{ sectionKey: string; reason: string }> = [];
+          if (executedTasks.length > 0) {
+            const verifyResult = await runPlannerVerifyStage({
+              session: freshSession,
+              executedTasks,
+              llm,
+              models: config.models,
+              now,
+              sink: wrappedSink,
+            });
+            const confirmedKeys = new Set(verifyResult.verdict.confirmed);
+            confirmedTasks = executedTasks.filter((t) => confirmedKeys.has(t.sectionKey));
+            failedTasks = verifyResult.verdict.failed.filter((f) => executedKeys.has(f.sectionKey));
+          }
+
           const smallResult = await runInterviewerSmallStage({
-            session,
-            executedTasks,
+            session: freshSession,
+            executedTasks: confirmedTasks,
+            failedTasks,
             llm,
             models: config.models,
             now,
