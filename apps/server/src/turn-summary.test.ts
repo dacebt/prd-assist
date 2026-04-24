@@ -15,14 +15,22 @@ describe("handleTurn — summary hook", () => {
   it("writes summary when update_section succeeds", async () => {
     const session = makeSession();
 
-    // Orchestrator: call 1 / Supervisor: call 2 → update_section, call 3 → final text
-    // Summary agent: call 4 → returns "new summary"
+    // New pipeline: orchestrator(1) → plannerBig(2) → worker update_section(3) → worker done(4)
+    // → interviewerSmall(5) → summary agent(6)
     let callCount = 0;
     const llm: LlmClient = {
       chat: () => {
         callCount++;
         if (callCount === 1) return Promise.resolve(stubOrchestratorReply(true));
+        // plannerBig: return task list
         if (callCount === 2) {
+          return Promise.resolve({
+            role: "assistant",
+            content: JSON.stringify({ tasks: [{ sectionKey: "vision", instruction: "Write vision from user input" }] }),
+          });
+        }
+        // worker: call update_section
+        if (callCount === 3) {
           return Promise.resolve({
             role: "assistant",
             content: null,
@@ -38,10 +46,15 @@ describe("handleTurn — summary hook", () => {
             ],
           });
         }
-        if (callCount === 3) {
+        // worker: done
+        if (callCount === 4) {
+          return Promise.resolve({ role: "assistant", content: null });
+        }
+        // interviewerSmall
+        if (callCount === 5) {
           return Promise.resolve({ role: "assistant", content: "Done! Vision updated." });
         }
-        // call 4: summary agent
+        // summary agent
         return Promise.resolve({ role: "assistant", content: "new summary" });
       },
       chatStreaming: stubChatStreaming,
@@ -49,7 +62,6 @@ describe("handleTurn — summary hook", () => {
 
     const mcp = makeDefaultMcpClient({
       listTools: () => Promise.resolve([MOCK_UPDATE_SECTION_TOOL]),
-      // update_section returns a non-error object (simulating Section shape)
       callTool: () => Promise.resolve({ key: "vision", content: "A vision", status: "draft", updatedAt: "2026-01-01T00:00:00Z" }),
     });
 
@@ -88,12 +100,21 @@ describe("handleTurn — summary hook", () => {
   it("does not write summary when the PRD-mutating tool call fails", async () => {
     const session = makeSession();
 
+    // New pipeline: orchestrator → plannerBig → worker (update_section returns error) → worker done → interviewerSmall
     let callCount = 0;
     const llm: LlmClient = {
       chat: () => {
         callCount++;
         if (callCount === 1) return Promise.resolve(stubOrchestratorReply(true));
+        // plannerBig
         if (callCount === 2) {
+          return Promise.resolve({
+            role: "assistant",
+            content: JSON.stringify({ tasks: [{ sectionKey: "vision", instruction: "Write vision" }] }),
+          });
+        }
+        // worker: call update_section (will return error)
+        if (callCount === 3) {
           return Promise.resolve({
             role: "assistant",
             content: null,
@@ -109,6 +130,11 @@ describe("handleTurn — summary hook", () => {
             ],
           });
         }
+        // worker: done
+        if (callCount === 4) {
+          return Promise.resolve({ role: "assistant", content: null });
+        }
+        // interviewerSmall
         return Promise.resolve({ role: "assistant", content: "I could not update that section." });
       },
       chatStreaming: stubChatStreaming,
@@ -129,12 +155,22 @@ describe("handleTurn — summary hook", () => {
   it("writes summary when mark_confirmed succeeds", async () => {
     const session = makeSession();
 
+    // New pipeline: orchestrator(1) → plannerBig(2) → worker mark_confirmed(3) → worker done(4)
+    // → interviewerSmall(5) → summary agent(6)
     let callCount = 0;
     const llm: LlmClient = {
       chat: () => {
         callCount++;
         if (callCount === 1) return Promise.resolve(stubOrchestratorReply(true));
+        // plannerBig
         if (callCount === 2) {
+          return Promise.resolve({
+            role: "assistant",
+            content: JSON.stringify({ tasks: [{ sectionKey: "vision", instruction: "Confirm vision" }] }),
+          });
+        }
+        // worker: call mark_confirmed
+        if (callCount === 3) {
           return Promise.resolve({
             role: "assistant",
             content: null,
@@ -150,9 +186,15 @@ describe("handleTurn — summary hook", () => {
             ],
           });
         }
-        if (callCount === 3) {
+        // worker: done
+        if (callCount === 4) {
+          return Promise.resolve({ role: "assistant", content: null });
+        }
+        // interviewerSmall
+        if (callCount === 5) {
           return Promise.resolve({ role: "assistant", content: "Vision confirmed." });
         }
+        // summary agent
         return Promise.resolve({ role: "assistant", content: "confirmed summary" });
       },
       chatStreaming: stubChatStreaming,
@@ -180,12 +222,22 @@ describe("handleTurn — summary hook", () => {
     const session = makeSession();
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
+    // New pipeline: orchestrator(1) → plannerBig(2) → worker update_section(3) → worker done(4)
+    // → interviewerSmall(5) → summary agent(6) — throws
     let callCount = 0;
     const llm: LlmClient = {
       chat: () => {
         callCount++;
         if (callCount === 1) return Promise.resolve(stubOrchestratorReply(true));
+        // plannerBig
         if (callCount === 2) {
+          return Promise.resolve({
+            role: "assistant",
+            content: JSON.stringify({ tasks: [{ sectionKey: "vision", instruction: "Write vision" }] }),
+          });
+        }
+        // worker: call update_section
+        if (callCount === 3) {
           return Promise.resolve({
             role: "assistant",
             content: null,
@@ -201,10 +253,15 @@ describe("handleTurn — summary hook", () => {
             ],
           });
         }
-        if (callCount === 3) {
+        // worker: done
+        if (callCount === 4) {
+          return Promise.resolve({ role: "assistant", content: null });
+        }
+        // interviewerSmall
+        if (callCount === 5) {
           return Promise.resolve({ role: "assistant", content: "PRD updated." });
         }
-        // call 4: summary agent — throw
+        // summary agent — throw
         return Promise.reject(new Error("boom"));
       },
       chatStreaming: stubChatStreaming,

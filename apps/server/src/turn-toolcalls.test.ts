@@ -22,12 +22,21 @@ describe("handleTurn — tool dispatch", () => {
       callTool: callToolSpy,
     });
 
+    // New pipeline: orchestrator → plannerBig → worker (get_prd, update_section, done) → interviewerSmall
     let callCount = 0;
     const llm: LlmClient = {
       chat: () => {
         callCount++;
         if (callCount === 1) return Promise.resolve(stubOrchestratorReply(true));
+        // plannerBig: return a task list with one task
         if (callCount === 2) {
+          return Promise.resolve({
+            role: "assistant",
+            content: JSON.stringify({ tasks: [{ sectionKey: "vision", instruction: "Write vision from user input" }] }),
+          });
+        }
+        // worker: call get_prd
+        if (callCount === 3) {
           return Promise.resolve({
             role: "assistant",
             content: null,
@@ -40,7 +49,8 @@ describe("handleTurn — tool dispatch", () => {
             ],
           });
         }
-        if (callCount === 3) {
+        // worker: call update_section
+        if (callCount === 4) {
           return Promise.resolve({
             role: "assistant",
             content: null,
@@ -56,6 +66,11 @@ describe("handleTurn — tool dispatch", () => {
             ],
           });
         }
+        // worker: done (no tool calls, no content)
+        if (callCount === 5) {
+          return Promise.resolve({ role: "assistant", content: null });
+        }
+        // interviewerSmall: final reply
         return Promise.resolve({ role: "assistant", content: "Done! Vision updated." });
       },
       chatStreaming: stubChatStreaming,
@@ -80,12 +95,21 @@ describe("handleTurn — tool dispatch", () => {
       listTools: () => Promise.resolve([MOCK_GET_PRD_TOOL]),
     });
 
+    // New pipeline: orchestrator → plannerBig → worker (bad args → recovered) → interviewerSmall
     let callCount = 0;
     const llm: LlmClient = {
       chat: () => {
         callCount++;
         if (callCount === 1) return Promise.resolve(stubOrchestratorReply(true));
+        // plannerBig: return task list
         if (callCount === 2) {
+          return Promise.resolve({
+            role: "assistant",
+            content: JSON.stringify({ tasks: [{ sectionKey: "vision", instruction: "Write vision" }] }),
+          });
+        }
+        // worker: bad tool args
+        if (callCount === 3) {
           return Promise.resolve({
             role: "assistant",
             content: null,
@@ -98,6 +122,11 @@ describe("handleTurn — tool dispatch", () => {
             ],
           });
         }
+        // worker: done after receiving error result
+        if (callCount === 4) {
+          return Promise.resolve({ role: "assistant", content: null });
+        }
+        // interviewerSmall
         return Promise.resolve({ role: "assistant", content: "recovered" });
       },
       chatStreaming: stubChatStreaming,
@@ -115,12 +144,21 @@ describe("handleTurn — tool dispatch", () => {
       listTools: () => Promise.resolve([MOCK_GET_PRD_TOOL]),
     });
 
+    // New pipeline: orchestrator → plannerBig → worker (unknown tool → done) → interviewerSmall
     let callCount = 0;
     const llm: LlmClient = {
       chat: () => {
         callCount++;
         if (callCount === 1) return Promise.resolve(stubOrchestratorReply(true));
+        // plannerBig: return task list
         if (callCount === 2) {
+          return Promise.resolve({
+            role: "assistant",
+            content: JSON.stringify({ tasks: [{ sectionKey: "vision", instruction: "Write vision" }] }),
+          });
+        }
+        // worker: unknown tool
+        if (callCount === 3) {
           return Promise.resolve({
             role: "assistant",
             content: null,
@@ -133,6 +171,11 @@ describe("handleTurn — tool dispatch", () => {
             ],
           });
         }
+        // worker: done after receiving error result
+        if (callCount === 4) {
+          return Promise.resolve({ role: "assistant", content: null });
+        }
+        // interviewerSmall
         return Promise.resolve({ role: "assistant", content: "recovered from unknown tool" });
       },
       chatStreaming: stubChatStreaming,
@@ -151,12 +194,21 @@ describe("handleTurn — tool dispatch", () => {
       callTool: () => Promise.reject(new Error("MCP connection failed")),
     });
 
+    // New pipeline: orchestrator → plannerBig → worker (MCP throws → done) → interviewerSmall
     let callCount = 0;
     const llm: LlmClient = {
       chat: () => {
         callCount++;
         if (callCount === 1) return Promise.resolve(stubOrchestratorReply(true));
+        // plannerBig: return task list
         if (callCount === 2) {
+          return Promise.resolve({
+            role: "assistant",
+            content: JSON.stringify({ tasks: [{ sectionKey: "vision", instruction: "Write vision" }] }),
+          });
+        }
+        // worker: call get_prd (MCP will throw)
+        if (callCount === 3) {
           return Promise.resolve({
             role: "assistant",
             content: null,
@@ -169,6 +221,11 @@ describe("handleTurn — tool dispatch", () => {
             ],
           });
         }
+        // worker: done after receiving error result
+        if (callCount === 4) {
+          return Promise.resolve({ role: "assistant", content: null });
+        }
+        // interviewerSmall
         return Promise.resolve({ role: "assistant", content: "recovered from mcp error" });
       },
       chatStreaming: stubChatStreaming,

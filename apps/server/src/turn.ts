@@ -11,6 +11,9 @@ import type { StreamSink } from "./stream";
 import { regenerateSummary } from "./summaryAgent";
 import { classifyTurn } from "./orchestrator";
 import { runInterviewerBigStage } from "./interviewerBig";
+import { runPlannerBigStage } from "./plannerBig";
+import { runWorkerStage } from "./workers";
+import { runInterviewerSmallStage } from "./interviewerSmall";
 
 export type TurnDeps = {
   store: SessionStore;
@@ -300,16 +303,76 @@ export async function handleTurn(opts: {
 
     const routed: RouteDecision = classification.needsPrdWork ? "work" : "no_work";
 
-    const { termination, wallStart, prdTouched } =
-      routed === "work"
-        ? await runSupervisorStage(sessionId, session, llm, mcp, config, now, buffered.sink)
-        : await runInterviewerBigStage({
+    let termination: Termination;
+    let wallStart: number;
+    let prdTouched: boolean;
+
+    if (routed === "work") {
+      const plannerResult = await runPlannerBigStage({
+        session,
+        llm,
+        models: config.models,
+        now,
+        sink: buffered.sink,
+      });
+
+      if (plannerResult.termination !== "final") {
+        ({ termination, wallStart, prdTouched } = plannerResult);
+      } else if (plannerResult.taskList.tasks.length === 0) {
+        const smallResult = await runInterviewerSmallStage({
+          session,
+          executedTask: null,
+          llm,
+          models: config.models,
+          now,
+          sink: buffered.sink,
+        });
+        termination = smallResult.termination;
+        wallStart = plannerResult.wallStart;
+        prdTouched = false;
+      } else {
+        const firstTask = plannerResult.taskList.tasks[0];
+        if (firstTask === undefined) {
+          throw new Error("planner returned non-empty task list with no first element");
+        }
+        const workerResult = await runWorkerStage({
+          task: firstTask,
+          sessionId,
+          llm,
+          mcp,
+          models: config.models,
+          wallClockMs: config.wallClockMs,
+          now,
+          sink: buffered.sink,
+        });
+
+        if (workerResult.termination !== "final") {
+          termination = workerResult.termination;
+          wallStart = plannerResult.wallStart;
+          prdTouched = workerResult.prdTouched;
+        } else {
+          const smallResult = await runInterviewerSmallStage({
             session,
+            executedTask: workerResult.prdTouched ? firstTask : null,
             llm,
             models: config.models,
             now,
             sink: buffered.sink,
           });
+          termination = smallResult.termination;
+          wallStart = plannerResult.wallStart;
+          prdTouched = workerResult.prdTouched;
+        }
+      }
+    } else {
+      ({ termination, wallStart, prdTouched } = await runInterviewerBigStage({
+        session,
+        llm,
+        models: config.models,
+        now,
+        sink: buffered.sink,
+      }));
+    }
 
     const reply = buffered.getFinal() ?? UNEXPECTED_ERROR_MESSAGE;
     await persistReplyAndSummary(

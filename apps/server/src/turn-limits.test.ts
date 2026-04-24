@@ -21,6 +21,7 @@ describe("handleTurn — per-call timeout", () => {
         chat: ({ signal }) => {
           calls++;
           if (calls === 1) return Promise.resolve(stubOrchestratorReply(true));
+          // plannerBig call — hangs until abort
           return new Promise((_resolve, reject) => {
             if (signal?.aborted) {
               reject(signal.reason);
@@ -33,7 +34,11 @@ describe("handleTurn — per-call timeout", () => {
       },
       createSessionMutex(),
     );
-    deps.config.perCallTimeoutMs = 50;
+    // plannerBig uses models.plannerBig.perCallTimeoutMs
+    deps.config.models = {
+      ...deps.config.models,
+      plannerBig: { ...deps.config.models.plannerBig, perCallTimeoutMs: 50 },
+    };
 
     const result = await handleTurn({ sessionId: "test-session", userText: "hello", deps });
 
@@ -49,11 +54,20 @@ describe("handleTurn — iteration cap", () => {
       callTool: () => Promise.resolve({ content: "ok" }),
     });
 
+    // New pipeline: orchestrator(1) → plannerBig(2) → worker loops forever with tool calls
     let callCount = 0;
     const llm: LlmClient = {
       chat: () => {
         callCount++;
         if (callCount === 1) return Promise.resolve(stubOrchestratorReply(true));
+        // plannerBig: return a task list
+        if (callCount === 2) {
+          return Promise.resolve({
+            role: "assistant",
+            content: JSON.stringify({ tasks: [{ sectionKey: "vision", instruction: "Write vision" }] }),
+          });
+        }
+        // worker: keep calling get_prd indefinitely
         return Promise.resolve({
           role: "assistant",
           content: null,
@@ -70,6 +84,11 @@ describe("handleTurn — iteration cap", () => {
     };
 
     const deps = makeDeps(session, llm, createSessionMutex(), mcp);
+    // worker iteration cap comes from models.worker.maxIterations
+    deps.config.models = {
+      ...deps.config.models,
+      worker: { ...deps.config.models.worker, maxIterations: 6 },
+    };
     const result = await handleTurn({ sessionId: "test-session", userText: "hi", deps });
 
     expect(result).toBe(
@@ -92,6 +111,14 @@ describe("handleTurn — wall-clock timeout", () => {
       chat: () => {
         llmCallCount++;
         if (llmCallCount === 1) return Promise.resolve(stubOrchestratorReply(true));
+        // plannerBig: return a task list
+        if (llmCallCount === 2) {
+          return Promise.resolve({
+            role: "assistant",
+            content: JSON.stringify({ tasks: [{ sectionKey: "vision", instruction: "Write vision" }] }),
+          });
+        }
+        // worker: keep calling get_prd
         return Promise.resolve({
           role: "assistant",
           content: null,
@@ -111,9 +138,16 @@ describe("handleTurn — wall-clock timeout", () => {
     const deps = makeDeps(session, llm, createSessionMutex(), mcp);
     deps.now = () => {
       nowCallCount++;
-      // Calls: (1) ts timestamp, (2) thinking event at:, (3) wallStart — all return start time.
-      // Fourth call onward (loop wall-clock checks) returns beyond cap.
-      if (nowCallCount <= 3) return new Date(startMs);
+      // now() call sequence in the new pipeline before the worker loop wall-clock check:
+      // (1) handleTurn: ts timestamp
+      // (2) handleTurn: orchestrator thinking at:
+      // (3) plannerBig: wallStart
+      // (4) plannerBig: first thinking at: (before LLM)
+      // (5) plannerBig: second thinking at: (after successful parse)
+      // (6) runWorkerStage: wallStart — must be startMs so wall-clock check fires on call 8+
+      // (7) runWorkerStage: worker thinking at:
+      // (8) worker loop: wall-clock check → returns beyond cap → fires
+      if (nowCallCount <= 6) return new Date(startMs);
       return new Date(startMs + 300_001);
     };
     deps.config.wallClockMs = 300_000;
