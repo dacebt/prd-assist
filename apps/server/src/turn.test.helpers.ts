@@ -9,10 +9,7 @@ import type { Session } from "@prd-assist/shared";
 import { createSessionMutex } from "./mutex";
 import { DEFAULT_MODEL_CONFIG, type ModelConfig } from "./config";
 
-export const TEST_MODEL_CONFIG: ModelConfig = {
-  ...DEFAULT_MODEL_CONFIG,
-  supervisor: { ...DEFAULT_MODEL_CONFIG.supervisor, model: "test-model" },
-};
+export const TEST_MODEL_CONFIG: ModelConfig = { ...DEFAULT_MODEL_CONFIG };
 
 export function makeSession(overrides: Partial<Session> = {}): Session {
   return {

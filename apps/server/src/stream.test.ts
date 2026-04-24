@@ -5,7 +5,7 @@ describe("createBufferedSink", () => {
   it("buffers events in order and getFinal returns last final content", () => {
     const buffered = createBufferedSink();
 
-    buffered.sink({ kind: "thinking", agentRole: "supervisor", content: "tick", at: "2026-04-21T00:00:00Z" });
+    buffered.sink({ kind: "thinking", agentRole: "orchestrator", content: "tick", at: "2026-04-21T00:00:00Z" });
     buffered.sink({ kind: "final", content: "done", at: "2026-04-21T00:00:01Z" });
 
     expect(buffered.events).toHaveLength(2);

@@ -6,9 +6,7 @@ import type { LoopResult, Termination } from "./turn";
 import type { PlannerTask } from "./plannerBig";
 import { buildInterviewerSmallPrompt } from "./prompts";
 
-const PER_CALL_TIMEOUT_MESSAGE = "The model took too long to respond. Please try again.";
-const UNEXPECTED_ERROR_MESSAGE =
-  "Something went wrong while processing that turn. See server logs for details.";
+import { PER_CALL_TIMEOUT_MESSAGE, UNEXPECTED_ERROR_MESSAGE } from "./turnMessages";
 
 type InterviewerSmallMessage =
   | { role: "system"; content: string }

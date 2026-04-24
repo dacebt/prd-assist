@@ -6,9 +6,7 @@ import type { LoopResult, Termination } from "./turn";
 import { buildInterviewerBigPrompt } from "./prompts";
 import { SECTION_KEYS } from "@prd-assist/shared";
 
-const PER_CALL_TIMEOUT_MESSAGE = "The model took too long to respond. Please try again.";
-const UNEXPECTED_ERROR_MESSAGE =
-  "Something went wrong while processing that turn. See server logs for details.";
+import { PER_CALL_TIMEOUT_MESSAGE, UNEXPECTED_ERROR_MESSAGE } from "./turnMessages";
 
 function buildPrdContext(session: SessionWithSummary): string {
   if (session.summary !== null) {

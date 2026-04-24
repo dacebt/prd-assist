@@ -7,6 +7,7 @@ import type { StreamSink } from "./stream";
 import type { LoopResult, Termination } from "./turn";
 import { buildPlannerBigPrompt } from "./prompts";
 import { SECTION_KEYS } from "@prd-assist/shared";
+import { PER_CALL_TIMEOUT_MESSAGE, UNEXPECTED_ERROR_MESSAGE } from "./turnMessages";
 
 export const PlannerTaskSchema = z.object({
   sectionKey: SectionKeySchema,
@@ -24,10 +25,6 @@ const EMPTY_TASK_LIST: PlannerTaskList = { tasks: [] };
 
 const RETRY_REMINDER =
   'Your previous reply was not valid JSON matching the schema { "tasks": [{ "sectionKey": string, "instruction": string }] }. Reply with only the JSON object and nothing else.';
-
-const PER_CALL_TIMEOUT_MESSAGE = "The model took too long to respond. Please try again.";
-const UNEXPECTED_ERROR_MESSAGE =
-  "Something went wrong while processing that turn. See server logs for details.";
 
 type PlannerMessage = { role: "system" | "user" | "assistant"; content: string };
 

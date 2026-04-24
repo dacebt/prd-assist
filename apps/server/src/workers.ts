@@ -7,12 +7,12 @@ import type { LoopResult, Termination } from "./turn";
 import type { PlannerTask } from "./plannerBig";
 import { buildWorkerPrompt } from "./prompts";
 
-const ITERATION_CAP_MESSAGE =
-  "I hit a tool-call loop limit. Please rephrase your request or try a smaller step.";
-const PER_CALL_TIMEOUT_MESSAGE = "The model took too long to respond. Please try again.";
-const WALL_CLOCK_MESSAGE = "I ran out of time on that turn. Please try again.";
-const UNEXPECTED_ERROR_MESSAGE =
-  "Something went wrong while processing that turn. See server logs for details.";
+import {
+  ITERATION_CAP_MESSAGE,
+  PER_CALL_TIMEOUT_MESSAGE,
+  WALL_CLOCK_MESSAGE,
+  UNEXPECTED_ERROR_MESSAGE,
+} from "./turnMessages";
 
 const PRD_MUTATING_TOOLS = new Set(["update_section", "mark_confirmed"]);
 

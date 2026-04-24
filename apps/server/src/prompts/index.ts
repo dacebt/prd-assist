@@ -1,4 +1,3 @@
-export { buildSupervisorPrompt } from "./supervisor";
 export { buildOrchestratorPrompt } from "./orchestrator";
 export { buildInterviewerBigPrompt } from "./interviewerBig";
 export { buildInterviewerSmallPrompt } from "./interviewerSmall";

@@ -1,7 +1,6 @@
 import { z } from "zod";
 
 export type AgentRole =
-  | "supervisor"
   | "orchestrator"
   | "interviewerBig"
   | "interviewerSmall"
@@ -10,7 +9,6 @@ export type AgentRole =
   | "summary";
 
 export const AgentRoleSchema = z.enum([
-  "supervisor",
   "orchestrator",
   "interviewerBig",
   "interviewerSmall",
@@ -28,7 +26,6 @@ export interface ModelRoleConfig {
 export type ModelConfig = Record<AgentRole, ModelRoleConfig>;
 
 export const DEFAULT_MODEL_CONFIG: ModelConfig = {
-  supervisor: { model: "google/gemma-4-26b-a4b", perCallTimeoutMs: 90_000, maxIterations: 12 },
   orchestrator: { model: "google/gemma-4-e4b", perCallTimeoutMs: 90_000, maxIterations: 1 },
   interviewerBig: { model: "google/gemma-4-26b-a4b", perCallTimeoutMs: 90_000, maxIterations: 1 },
   interviewerSmall: { model: "google/gemma-4-e4b", perCallTimeoutMs: 90_000, maxIterations: 1 },

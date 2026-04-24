@@ -13,7 +13,6 @@ describe("buildModelConfigFromEnv", () => {
     expect(result.orchestrator.perCallTimeoutMs).toBe(90_000);
     expect(result.orchestrator.maxIterations).toBe(DEFAULT_MODEL_CONFIG.orchestrator.maxIterations);
     for (const role of [
-      "supervisor",
       "interviewerBig",
       "interviewerSmall",
       "plannerBig",
