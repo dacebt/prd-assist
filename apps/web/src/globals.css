@@ -7,3 +7,20 @@
     @apply bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100;
   }
 }
+
+@keyframes dot-pulse {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 1; }
+}
+
+.dot {
+  animation: dot-pulse 1.2s infinite;
+}
+
+.dot-delay-1 {
+  animation-delay: 0.2s;
+}
+
+.dot-delay-2 {
+  animation-delay: 0.4s;
+}

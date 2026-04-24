@@ -18,19 +18,17 @@ interface ThinkingEntry {
 
 interface MessageListProps {
   messages: Session["messages"];
-  thinkingRows: ThinkingEntry[];
+  currentThinking: ThinkingEntry | null;
   bottomRef: React.RefObject<HTMLDivElement>;
 }
 
-function MessageList({ messages, thinkingRows, bottomRef }: MessageListProps) {
+function MessageList({ messages, currentThinking, bottomRef }: MessageListProps) {
   return (
     <div className="flex-1 overflow-y-auto p-4">
       {messages.map((msg) => (
         <MessageBubble key={msg.at} role={msg.role} content={msg.content} />
       ))}
-      {thinkingRows.map((row, i) => (
-        <ThinkingRow key={i} agentRole={row.agentRole} />
-      ))}
+      {currentThinking && <ThinkingRow agentRole={currentThinking.agentRole} />}
       <div ref={bottomRef} />
     </div>
   );
@@ -79,12 +77,12 @@ function Composer({ text, error, inFlight, onTextChange, onSubmit }: ComposerPro
 export default function ChatPane({ session, inFlight, onBeforeSend, onAfterSend }: Props) {
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [thinkingRows, setThinkingRows] = useState<ThinkingEntry[]>([]);
+  const [currentThinking, setCurrentThinking] = useState<ThinkingEntry | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [session.messages, thinkingRows]);
+  }, [session.messages, currentThinking]);
 
   async function submit() {
     const trimmed = text.trim();
@@ -98,11 +96,11 @@ export default function ChatPane({ session, inFlight, onBeforeSend, onAfterSend 
     try {
       await sendMessage(session.id, trimmed, {
         onThinking: ({ agentRole, content }) => {
-          setThinkingRows((rows) => [...rows, { agentRole, content }]);
+          setCurrentThinking({ agentRole, content });
         },
         onFinal: ({ content }) => {
           finalContent = content;
-          setThinkingRows([]);
+          setCurrentThinking(null);
         },
       });
 
@@ -116,7 +114,7 @@ export default function ChatPane({ session, inFlight, onBeforeSend, onAfterSend 
       };
       onAfterSend(optimistic);
     } catch (err) {
-      setThinkingRows([]);
+      setCurrentThinking(null);
       const msg = err instanceof Error ? err.message : "Unknown error";
       setError(`Send failed: ${msg}`);
       onAfterSend(undefined);
@@ -125,7 +123,7 @@ export default function ChatPane({ session, inFlight, onBeforeSend, onAfterSend 
 
   return (
     <div className="h-full w-full bg-white flex flex-col dark:bg-gray-900">
-      <MessageList messages={session.messages} thinkingRows={thinkingRows} bottomRef={bottomRef} />
+      <MessageList messages={session.messages} currentThinking={currentThinking} bottomRef={bottomRef} />
       <Composer
         text={text}
         error={error}
