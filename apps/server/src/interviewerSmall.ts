@@ -15,18 +15,19 @@ type InterviewerSmallMessage =
   | { role: "user"; content: string }
   | { role: "assistant"; content: string };
 
-function buildTaskContext(executedTask: PlannerTask | null): string {
-  if (executedTask === null) {
+function buildTaskContext(executedTasks: PlannerTask[]): string {
+  if (executedTasks.length === 0) {
     return "No edits were made this turn.";
   }
-  return `Edited section: ${executedTask.sectionKey}\nTask instruction: ${executedTask.instruction}`;
+  const lines = executedTasks.map((t) => `- ${t.sectionKey}: ${t.instruction}`);
+  return `Edited sections this turn:\n${lines.join("\n")}`;
 }
 
 function buildMessages(
   session: SessionWithSummary,
-  executedTask: PlannerTask | null,
+  executedTasks: PlannerTask[],
 ): InterviewerSmallMessage[] {
-  const taskContext = buildTaskContext(executedTask);
+  const taskContext = buildTaskContext(executedTasks);
   const systemContent = `${buildInterviewerSmallPrompt()}\n\n${taskContext}`;
   const systemMessage: InterviewerSmallMessage = { role: "system", content: systemContent };
   const history: InterviewerSmallMessage[] = session.messages.map((m) => ({
@@ -38,13 +39,13 @@ function buildMessages(
 
 export async function runInterviewerSmallStage(opts: {
   session: SessionWithSummary;
-  executedTask: PlannerTask | null;
+  executedTasks: PlannerTask[];
   llm: LlmClient;
   models: ModelConfig;
   now: () => Date;
   sink: StreamSink;
 }): Promise<LoopResult> {
-  const { session, executedTask, llm, models, now, sink } = opts;
+  const { session, executedTasks, llm, models, now, sink } = opts;
   const wallStart = now().getTime();
 
   sink({
@@ -54,7 +55,7 @@ export async function runInterviewerSmallStage(opts: {
     at: now().toISOString(),
   });
 
-  const messages = buildMessages(session, executedTask);
+  const messages = buildMessages(session, executedTasks);
 
   const signal = AbortSignal.timeout(models.interviewerSmall.perCallTimeoutMs);
   let termination: Termination;

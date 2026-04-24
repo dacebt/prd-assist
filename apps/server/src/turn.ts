@@ -12,6 +12,7 @@ import { regenerateSummary } from "./summaryAgent";
 import { classifyTurn } from "./orchestrator";
 import { runInterviewerBigStage } from "./interviewerBig";
 import { runPlannerBigStage } from "./plannerBig";
+import type { PlannerTask } from "./plannerBig";
 import { runWorkerStage } from "./workers";
 import { runInterviewerSmallStage } from "./interviewerSmall";
 
@@ -318,42 +319,42 @@ export async function handleTurn(opts: {
 
       if (plannerResult.termination !== "final") {
         ({ termination, wallStart, prdTouched } = plannerResult);
-      } else if (plannerResult.taskList.tasks.length === 0) {
-        const smallResult = await runInterviewerSmallStage({
-          session,
-          executedTask: null,
-          llm,
-          models: config.models,
-          now,
-          sink: buffered.sink,
-        });
-        termination = smallResult.termination;
-        wallStart = plannerResult.wallStart;
-        prdTouched = false;
       } else {
-        const firstTask = plannerResult.taskList.tasks[0];
-        if (firstTask === undefined) {
-          throw new Error("planner returned non-empty task list with no first element");
-        }
-        const workerResult = await runWorkerStage({
-          task: firstTask,
-          sessionId,
-          llm,
-          mcp,
-          models: config.models,
-          wallClockMs: config.wallClockMs,
-          now,
-          sink: buffered.sink,
-        });
+        const executedTasks: PlannerTask[] = [];
+        let workerFailed = false;
+        let failedWorkerResult: LoopResult | undefined;
 
-        if (workerResult.termination !== "final") {
-          termination = workerResult.termination;
+        for (const task of plannerResult.taskList.tasks) {
+          const workerResult = await runWorkerStage({
+            task,
+            sessionId,
+            llm,
+            mcp,
+            models: config.models,
+            wallClockMs: config.wallClockMs,
+            now,
+            sink: buffered.sink,
+          });
+
+          if (workerResult.prdTouched) {
+            executedTasks.push(task);
+          }
+
+          if (workerResult.termination !== "final") {
+            workerFailed = true;
+            failedWorkerResult = workerResult;
+            break;
+          }
+        }
+
+        if (workerFailed && failedWorkerResult !== undefined) {
+          termination = failedWorkerResult.termination;
           wallStart = plannerResult.wallStart;
-          prdTouched = workerResult.prdTouched;
+          prdTouched = executedTasks.length > 0;
         } else {
           const smallResult = await runInterviewerSmallStage({
             session,
-            executedTask: workerResult.prdTouched ? firstTask : null,
+            executedTasks,
             llm,
             models: config.models,
             now,
@@ -361,7 +362,7 @@ export async function handleTurn(opts: {
           });
           termination = smallResult.termination;
           wallStart = plannerResult.wallStart;
-          prdTouched = workerResult.prdTouched;
+          prdTouched = executedTasks.length > 0;
         }
       }
     } else {

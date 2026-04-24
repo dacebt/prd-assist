@@ -236,4 +236,99 @@ describe("handleTurn — tool dispatch", () => {
 
     expect(result).toBe("recovered from mcp error");
   });
+
+  it("2-task planner: both workers run and both update_section calls fire", async () => {
+    const session = makeSession();
+    const callToolSpy = vi.fn().mockResolvedValue({ content: "mocked prd" });
+
+    const mcp = makeDefaultMcpClient({
+      listTools: () => Promise.resolve([MOCK_GET_PRD_TOOL, MOCK_UPDATE_SECTION_TOOL]),
+      callTool: callToolSpy,
+    });
+
+    // orchestrator(1) → plannerBig(2) →
+    //   workerA: update_section vision(3), done(4) →
+    //   workerB: update_section targetUsers(5), done(6) →
+    //   interviewerSmall(7)
+    let callCount = 0;
+    const llm: LlmClient = {
+      chat: () => {
+        callCount++;
+        if (callCount === 1) return Promise.resolve(stubOrchestratorReply(true));
+        // plannerBig: two tasks
+        if (callCount === 2) {
+          return Promise.resolve({
+            role: "assistant",
+            content: JSON.stringify({
+              tasks: [
+                { sectionKey: "vision", instruction: "Write vision" },
+                { sectionKey: "targetUsers", instruction: "Describe target users" },
+              ],
+            }),
+          });
+        }
+        // workerA: call update_section vision
+        if (callCount === 3) {
+          return Promise.resolve({
+            role: "assistant",
+            content: null,
+            tool_calls: [
+              {
+                id: "call-a",
+                type: "function",
+                function: {
+                  name: "update_section",
+                  arguments: '{"session_id":"test-session","key":"vision","content":"Vision text"}',
+                },
+              },
+            ],
+          });
+        }
+        // workerA: done
+        if (callCount === 4) {
+          return Promise.resolve({ role: "assistant", content: null });
+        }
+        // workerB: call update_section targetUsers
+        if (callCount === 5) {
+          return Promise.resolve({
+            role: "assistant",
+            content: null,
+            tool_calls: [
+              {
+                id: "call-b",
+                type: "function",
+                function: {
+                  name: "update_section",
+                  arguments: '{"session_id":"test-session","key":"targetUsers","content":"Users text"}',
+                },
+              },
+            ],
+          });
+        }
+        // workerB: done
+        if (callCount === 6) {
+          return Promise.resolve({ role: "assistant", content: null });
+        }
+        // interviewerSmall
+        return Promise.resolve({ role: "assistant", content: "Both sections updated." });
+      },
+      chatStreaming: stubChatStreaming,
+    };
+
+    const deps = makeDeps(session, llm, createSessionMutex(), mcp);
+    const result = await handleTurn({ sessionId: "test-session", userText: "Set vision and users", deps });
+
+    expect(result).toBe("Both sections updated.");
+    expect(callToolSpy).toHaveBeenCalledTimes(2);
+    expect(callToolSpy).toHaveBeenNthCalledWith(1, "update_section", {
+      session_id: "test-session",
+      key: "vision",
+      content: "Vision text",
+    });
+    expect(callToolSpy).toHaveBeenNthCalledWith(2, "update_section", {
+      session_id: "test-session",
+      key: "targetUsers",
+      content: "Users text",
+    });
+  });
 });
