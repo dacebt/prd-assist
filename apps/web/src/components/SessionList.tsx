@@ -179,29 +179,46 @@ type SessionRowProps = {
   onRetry: () => void;
 };
 
+function SectionProgress({ confirmed }: { confirmed: number }) {
+  const pct = Math.max(0, Math.min(100, (confirmed / 7) * 100));
+  return (
+    <span className="flex items-center gap-2">
+      <span className="h-1.5 w-16 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-800">
+        <span
+          className="block h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-[width]"
+          style={{ width: `${pct}%` }}
+        />
+      </span>
+      <span>{confirmed}/7 confirmed</span>
+    </span>
+  );
+}
+
 function SessionRow({ s, pending, onTrashClick, onConfirm, onCancel, onRetry }: SessionRowProps) {
   const textBlock = (
     <>
-      <p className="truncate pr-10 text-sm font-medium text-gray-800 dark:text-gray-100">
-        {s.title || "(untitled)"}
+      <p className="truncate pr-10 text-base font-semibold tracking-tight text-gray-900 dark:text-white">
+        {s.title || "Untitled session"}
       </p>
-      <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
+      <p className="mt-1 font-mono text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">
         {s.id.slice(-8)} · created {relativeTime(s.createdAt)} · updated {relativeTime(s.updatedAt)}
       </p>
-      <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
-        {s.exchangeCount} exchanges · {s.sectionsConfirmed}/7 confirmed
-      </p>
+      <div className="mt-2 flex items-center gap-3 text-xs text-gray-600 dark:text-gray-400">
+        <span>{s.exchangeCount} exchanges</span>
+        <span className="text-gray-300 dark:text-gray-700" aria-hidden="true">·</span>
+        <SectionProgress confirmed={s.sectionsConfirmed} />
+      </div>
     </>
   );
 
   return (
     <li className="group relative">
       {pending !== null ? (
-        <div className="block px-6 py-4 bg-gray-50 dark:bg-gray-800">{textBlock}</div>
+        <div className="block px-6 py-4 bg-gray-50 dark:bg-gray-800/60">{textBlock}</div>
       ) : (
         <Link
           to={`/sessions/${s.id}`}
-          className="block px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
+          className="block border-l-2 border-transparent px-6 py-4 transition-colors hover:border-blue-500 hover:bg-blue-50/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 dark:hover:border-blue-400 dark:hover:bg-blue-950/30"
         >
           {textBlock}
         </Link>
